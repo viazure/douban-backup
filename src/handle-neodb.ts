@@ -108,7 +108,7 @@ async function markItem(neodbItem: NeodbItem, item: FeedItem): Promise<void> {
       },
       json: {
         shelf_type: item.status,
-        visibility: 2,
+        visibility: 0,
         comment_text: item.comment || '',
         rating_grade: item.rating ? item.rating * 2 : 0,
         created_time: item.time,
