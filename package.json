@@ -31,10 +31,10 @@
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.3"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.15",
+    "@notionhq/client": "^2.2.16",
     "consola": "^3.4.0",
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.7",
