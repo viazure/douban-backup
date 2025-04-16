@@ -37,10 +37,10 @@
     "@notionhq/client": "^2.3.0",
     "consola": "^3.4.2",
     "dayjs": "^1.11.13",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "fast-csv": "^5.0.2",
     "got": "^14.4.7",
-    "jsdom": "^26.0.0",
+    "jsdom": "^26.1.0",
     "rss-parser": "^3.13.0"
   }
 }
