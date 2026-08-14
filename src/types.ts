@@ -1,7 +1,7 @@
 import Parser from 'rss-parser';
 import DB_PROPERTIES from '../cols.json';
 
-export type DB_PROPERTIES_KEYS = Exclude<keyof typeof DB_PROPERTIES, "NAME">;
+export type DB_PROPERTIES_KEYS = Exclude<keyof typeof DB_PROPERTIES, 'NAME'>;
 
 export enum ItemCategory {
   Movie = 'movie',
@@ -9,14 +9,15 @@ export enum ItemCategory {
   Book = 'book',
   Game = 'game',
   Drama = 'drama',
-};
+}
 
 // follow the schema value of Neodb
 export enum ItemStatus {
   Wishlist = 'wishlist',
   Progress = 'progress',
   Complete = 'complete',
-};
+  Dropped = 'dropped',
+}
 
 export type RSSFeedItem = {
   [key: string]: any;
@@ -25,12 +26,19 @@ export type RSSFeedItem = {
 export type FeedItem = {
   id: string;
   link: string;
+  title: string;
   rating: number | null;
   comment: string | null;
   time: string;
   status: ItemStatus;
   category: ItemCategory;
 };
+
+/** Bangumi SubjectType: 1 book, 2 anime, 3 music, 4 game, 6 real */
+export type BangumiSubjectType = 1 | 2 | 3 | 4 | 6;
+
+/** Bangumi CollectionType: 1 wish, 2 done, 3 doing, 4 on-hold, 5 dropped */
+export type BangumiCollectionType = 1 | 2 | 3 | 4 | 5;
 
 export enum NotionPropTypesEnum {
   TITLE = 'title',
@@ -40,7 +48,7 @@ export enum NotionPropTypesEnum {
   MULTI_SELECT = 'multi_select',
   NUMBER = 'number',
   URL = 'url',
-};
+}
 
 export type NotionRichTextPropType = {
   id?: string;

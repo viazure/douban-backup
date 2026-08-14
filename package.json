@@ -5,7 +5,13 @@
   "exports": "./index.js",
   "type": "module",
   "scripts": {
-    "sync": "tsx src/index.ts"
+    "sync": "tsx src/index.ts",
+    "sync:bangumi-full": "tsx src/sync-bangumi-full.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -15,6 +21,7 @@
     "douban",
     "notion",
     "neodb",
+    "bangumi",
     "backup",
     "csv",
     "rss",
@@ -30,8 +37,14 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/jsdom": "^28.0.3",
-    "tsx": "^4.23.1"
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "tsx": "^4.23.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0"
   },
   "dependencies": {
     "@notionhq/client": "^5.23.3",

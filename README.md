@@ -4,7 +4,6 @@
 >
 > 油猴脚本 -> https://greasyfork.org/en/scripts/420999
 
-
 ```
 .
 ├── archive     # 不再使用的实验时的爬虫脚本
@@ -14,7 +13,6 @@
 ├── src         # 会保持更新正在使用的脚本👩🏻‍💻👈
 └── userscript  # 导出时可使用的油猴脚本
 ```
-
 
 ## 从豆瓣 RSS 数据同步到 Notion 数据库
 
@@ -131,23 +129,88 @@ GitHub 免费用户的开源仓库，actions 暂时是完全免费，也不计�
 
 [查看 workflow 运行结果 ->](https://github.com/bambooom/douban-backup/actions/workflows/sync-rss.js.yml)
 
+## 同步路径开关
+
+每条链路可独立开关（环境变量 / GitHub Actions repository variables）。未设置时的默认值如下：
+
+| Variable              | 默认 | 说明                 |
+| --------------------- | ---- | -------------------- |
+| `SYNC_DOUBAN_NOTION`  | `0`  | 豆瓣 RSS → Notion    |
+| `SYNC_DOUBAN_NEODB`   | `1`  | 豆瓣 RSS → NeoDB     |
+| `SYNC_DOUBAN_BANGUMI` | `1`  | 豆瓣 RSS → Bangumi   |
+| `SYNC_BANGUMI_NEODB`  | `1`  | Bangumi 收藏 → NeoDB |
+
+取值为 `1` / `true` / `on` 启用，`0` / `false` / `off` 关闭。关闭全部 `Douban→*` 时会跳过拉取豆瓣 RSS。
+
+本地示例（只开你需要的三条）：
+
+```env
+SYNC_DOUBAN_NOTION=0
+SYNC_DOUBAN_NEODB=1
+SYNC_DOUBAN_BANGUMI=1
+SYNC_BANGUMI_NEODB=1
+```
+
 ## 同时同步标记到 NeoDB
 
 > [NeoDB 文档](https://neodb.social/developer/)
 
 在文档页面先生成一个 Token，然后给 repo 添加一个 secret 叫 `NEODB_API_TOKEN`。
 
-可选：添加 `NEODB_VISIBILITY` 来控制同步到 NeoDB 时的可见性（默认值为 `2`）。
+可选：添加 `NEODB_VISIBILITY`（repository variable）来控制同步到 NeoDB 时的可见性（默认值为 `2`）。
 
-即可开启在豆瓣的标记会同步到 NeoDB 的功能。
+需同时开启 `SYNC_DOUBAN_NEODB=1`（默认已开）。
 
+## 同步到 Bangumi（Douban → Bangumi）
+
+> [Bangumi API](https://bangumi.github.io/api/)
+
+1. 打开 [个人令牌页面](https://next.bgm.tv/demo/access-token)（需先在 next.bgm.tv 登录），创建一个 Access Token。
+2. 创建时尽量选择最长有效期（常见约 1 年；官方没有永久选项）。
+3. 给 repo 添加 secret：`BANGUMI_ACCESS_TOKEN`。
+4. 保持 `SYNC_DOUBAN_BANGUMI=1`（默认已开）。
+
+可选 repository variables：
+
+| Variable                   | 默认                      | 说明                                  |
+| -------------------------- | ------------------------- | ------------------------------------- |
+| `BANGUMI_PRIVATE`          | `false`                   | 是否将收藏设为仅自己可见              |
+| `BANGUMI_USER_AGENT`       | `douban-backup/1.0 (...)` | Bangumi 要求带 User-Agent             |
+| `BANGUMI_COLLECTION_LIMIT` | `50`                      | Bangumi→NeoDB 每次增量条数（最大 50） |
+
+**Token 会过期**：个人令牌没有 refresh，到期后需自行回页面重新生成，并更新 `BANGUMI_ACCESS_TOKEN`。若 workflow 日志出现 401 /「token 可能已过期」提示，就是这个原因。详见 [个人令牌说明](https://bgm.tv/group/topic/370315)。
+
+匹配策略：优先通过 NeoDB 的 `external_resources` 找到 Bangumi 条目；找不到再用标题精确搜索。豆瓣「话剧」仅在 NeoDB 已挂 Bangumi 链接时同步。Bangumi 无法写入标记时间，豆瓣打分日期会丢失。
+
+冲突处理：豆瓣 RSS 没有「搁置 / 抛弃」。若 Bangumi 已是搁置/抛弃，或 NeoDB 已是 `dropped`，Douban→* 不会覆盖，以免冲掉目标端独有状态。
+
+Bangumi→NeoDB 状态映射：想看→wishlist，在看→progress，看过→complete，**搁置→progress（在玩）**，**抛弃→dropped**。
+
+重复条目：NeoDB 可能对同一作品有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 会优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）。若两侧尚未互链，仍可能各标一条，需等 NeoDB 目录合并或补全外链。
+
+覆盖类型：书籍、动画/三次元影视、音乐、游戏。
+
+## 从 Bangumi 同步到 NeoDB（Bangumi → NeoDB）
+
+同时配置了 `BANGUMI_ACCESS_TOKEN` 与 `NEODB_API_TOKEN`，且 `SYNC_BANGUMI_NEODB=1`（默认已开）时，定时任务会额外拉取最近一批 Bangumi 收藏（默认 50 条）并同步到 NeoDB。
+
+首次全量迁移请手动运行（不要放进默认 cron）：
+
+```bash
+npm run sync:bangumi-full
+```
+
+或在本地 / Actions 设置环境变量 `BANGUMI_FULL_SYNC=1` 后执行 `npm run sync`。
 
 ## todo
+
 - [x] ~~补全 notion 中的海报~~
   - 同步时会正常插入海报信息，海报图片是豆瓣上的图片的 URL，所以在 notion 中显示不稳定。但因为 notion API 不支持上传文件，所以也无法直接插入图片。暂时不做任何优化。
 - [x] ~~userscript 添加导出 在* 和 想* 的功能~~
   - 想* 的部分已更新
   - 在* 的部分感觉个人需求实在不太大，已搁置
 - [x] 豆瓣的标记同步更新到 NeoDB
-- [ ] 添加 *在\** 或者 *想\** 列表，考虑一下如何显示？
+- [x] 豆瓣的标记同步更新到 Bangumi
+- [x] Bangumi 的标记同步更新到 NeoDB
+- [ ] 添加 _在\*_ 或者 _想\*_ 列表，考虑一下如何显示？
 - [ ] 从别处更新条目，比如 NeoDB，因为部分条目在豆瓣被删除或未创建

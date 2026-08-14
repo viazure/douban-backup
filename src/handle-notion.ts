@@ -1,7 +1,7 @@
 import { consola } from 'consola';
 import dayjs from 'dayjs';
 import dotenv from 'dotenv';
-import { Client, type DatabaseObjectResponse } from '@notionhq/client';
+import { Client } from '@notionhq/client';
 import { type CreatePageParameters } from '@notionhq/client/build/src/api-endpoints';
 import scrapyDouban from './handle-douban';
 import { getDataSourceId, sleep, buildPropertyValue } from './utils';
@@ -16,7 +16,7 @@ import {
 } from './types';
 
 // https://github.com/makenotion/notion-sdk-js/issues/280#issuecomment-1178523498
-type EmojiRequest = Extract<CreatePageParameters['icon'], { type?: 'emoji'; }>['emoji'];
+type EmojiRequest = Extract<CreatePageParameters['icon'], { type?: 'emoji' }>['emoji'];
 
 dotenv.config();
 
@@ -77,7 +77,10 @@ export default async function handleNotion(feeds: FeedItem[]): Promise<void> {
  * @param {ItemCategory} category - the category of the feed items
  * @return {Promise<FailedItem[] | undefined>} an array of failed items or undefined
  */
-async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory): Promise<FailedItem[] | undefined> {
+async function syncNotionDB(
+  categorizedFeeds: FeedItem[],
+  category: ItemCategory,
+): Promise<FailedItem[] | undefined> {
   if (categorizedFeeds.length === 0) {
     consola.info(`No new ${category} feeds.`);
     return;
@@ -92,33 +95,44 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
   consola.start(`Handling ${category} feeds...`);
 
   // after @notionhq sdk upgraded to v5.0.0, use dataSource instead of database
-  const queryItems = await notion.dataSources.query({
-    data_source_id: dataSourceId,
-    filter: {
-      or: categorizedFeeds.map((item) => ({
-        property: DB_PROPERTIES.ITEM_LINK,
-        url: {
-          contains: item.id,
-        },
-      })),
-    },
-  }).catch((error) => {
-    consola.error(`Failed to query ${category} database to check already inserted items. `, error);
-    process.exit(1);
-  });
+  const queryItems = await notion.dataSources
+    .query({
+      data_source_id: dataSourceId,
+      filter: {
+        or: categorizedFeeds.map((item) => ({
+          property: DB_PROPERTIES.ITEM_LINK,
+          url: {
+            contains: item.id,
+          },
+        })),
+      },
+    })
+    .catch((error) => {
+      consola.error(
+        `Failed to query ${category} database to check already inserted items. `,
+        error,
+      );
+      process.exit(1);
+    });
 
-  const alreadyInsertedItems = new Set(queryItems.results.map((i) => {
-    if ('properties' in i) {
-      return (i.properties[DB_PROPERTIES.ITEM_LINK] as NotionUrlPropType).url;
-    }
-    return;
-  }).filter(v => v));
+  const alreadyInsertedItems = new Set(
+    queryItems.results
+      .map((i) => {
+        if ('properties' in i) {
+          return (i.properties[DB_PROPERTIES.ITEM_LINK] as NotionUrlPropType).url;
+        }
+        return;
+      })
+      .filter((v) => v),
+  );
 
   const newFeeds = categorizedFeeds.filter((item) => {
     return !alreadyInsertedItems.has(item.link);
   });
 
-  consola.info(`There are total ${newFeeds.length} new ${category} item(s) need to insert.`);
+  consola.info(
+    `There are total ${newFeeds.length} new ${category} item(s) need to insert.`,
+  );
 
   const failedItems: FailedItem[] = [];
 
@@ -127,7 +141,9 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
       const itemData = await scrapyDouban(newFeedItem.link, category);
       itemData[DB_PROPERTIES.ITEM_LINK] = newFeedItem.link;
       itemData[DB_PROPERTIES.RATING] = newFeedItem.rating;
-      itemData[DB_PROPERTIES.RATING_DATE] = dayjs(newFeedItem.time).format('YYYY-MM-DD');
+      itemData[DB_PROPERTIES.RATING_DATE] = dayjs(newFeedItem.time).format(
+        'YYYY-MM-DD',
+      );
       itemData[DB_PROPERTIES.COMMENTS] = newFeedItem.comment;
       const successful = await addItemToNotion(itemData, category);
       if (!successful) {
@@ -137,7 +153,6 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
         });
       }
       await sleep(1000);
-
     } catch (error) {
       consola.error(error);
       continue;
@@ -145,7 +160,9 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
   }
 
   if (failedItems.length) {
-    consola.error(`Failed to insert ${failedItems.length} items into ${category} Notion database.`);
+    consola.error(
+      `Failed to insert ${failedItems.length} items into ${category} Notion database.`,
+    );
   }
   consola.success(`${category} feeds done.`);
   consola.log('====================');
@@ -159,13 +176,16 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
  * @param {ItemCategory} category - The category of the item.
  * @return {boolean} Indicates whether the item was successfully added to the database.
  */
-async function addItemToNotion(itemData: {
+async function addItemToNotion(
+  itemData: {
     [key: string]: string | string[] | number | null | undefined;
-}, category: ItemCategory): Promise<boolean> {
+  },
+  category: ItemCategory,
+): Promise<boolean> {
   consola.start(
     'Going to insert ',
     itemData[DB_PROPERTIES.RATING_DATE],
-    itemData[DB_PROPERTIES.NAME]
+    itemData[DB_PROPERTIES.NAME],
   );
   try {
     const properties: Record<string, any> = {};
@@ -176,7 +196,7 @@ async function addItemToNotion(itemData: {
         properties[DB_PROPERTIES[key]] = buildPropertyValue(
           itemData[DB_PROPERTIES[key]],
           PropertyTypeMap[key],
-          DB_PROPERTIES[key]
+          DB_PROPERTIES[key],
         );
       }
     });
@@ -186,7 +206,9 @@ async function addItemToNotion(itemData: {
       throw new Error('No data source id found for category: ' + category);
     }
 
-    const db = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+    const db = await notion.dataSources.retrieve({
+      data_source_id: dataSourceId,
+    });
     const columns = Object.keys(db.properties);
     // remove cols which are not in the current database
     const propKeys = Object.keys(properties);
@@ -198,7 +220,7 @@ async function addItemToNotion(itemData: {
 
     const postData: CreatePageParameters = {
       parent: {
-        type: "data_source_id",
+        type: 'data_source_id',
         data_source_id: dataSourceId,
       },
       icon: {
@@ -214,7 +236,8 @@ async function addItemToNotion(itemData: {
       postData.cover = {
         type: 'external',
         external: {
-          url: (properties[DB_PROPERTIES.POSTER] || properties[DB_PROPERTIES.COVER])?.files[0]?.external?.url, // cannot be empty string or null
+          url: (properties[DB_PROPERTIES.POSTER] || properties[DB_PROPERTIES.COVER])
+            ?.files[0]?.external?.url, // cannot be empty string or null
         },
       };
     }
@@ -224,7 +247,7 @@ async function addItemToNotion(itemData: {
       consola.success(
         itemData[DB_PROPERTIES.NAME] +
           `[${itemData[DB_PROPERTIES.ITEM_LINK]}]` +
-          ' page inserted into Notion database.'
+          ' page inserted into Notion database.',
       );
     }
     return true;
@@ -234,7 +257,7 @@ async function addItemToNotion(itemData: {
         itemData[DB_PROPERTIES.NAME] +
         `(${itemData[DB_PROPERTIES.ITEM_LINK]})` +
         ' with error: ',
-      error
+      error,
     );
     return false;
   }

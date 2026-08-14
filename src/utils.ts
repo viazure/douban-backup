@@ -51,7 +51,11 @@ export function sleep(ms: number): Promise<void> {
  * @param {string} key - the key associated with the property
  * @return {any} the generated value for the property later will be sent to notion to create an item
  */
-export function buildPropertyValue(value: any, type: NotionPropTypesEnum, key: string): NotionColPropTypes | undefined {
+export function buildPropertyValue(
+  value: any,
+  type: NotionPropTypesEnum,
+  key: string,
+): NotionColPropTypes | undefined {
   switch (type) {
     case NotionPropTypesEnum.TITLE:
       return {
@@ -72,7 +76,7 @@ export function buildPropertyValue(value: any, type: NotionPropTypesEnum, key: s
             name: value,
             type: 'external',
             external: {
-              url: value
+              url: value,
             },
           },
         ],
@@ -86,16 +90,14 @@ export function buildPropertyValue(value: any, type: NotionPropTypesEnum, key: s
       } as NotionDatePropType;
     case NotionPropTypesEnum.MULTI_SELECT:
       return key === DB_PROPERTIES.RATING
-        ? {
-          type: NotionPropTypesEnum.MULTI_SELECT,
-          multi_select: value
-            ? [{ name: value.toString() }]
-            : [],
-        } as NotionMultiSelectPropType
-        : {
-          type: NotionPropTypesEnum.MULTI_SELECT,
-          multi_select: (value || []).map((g: string) => ({ name: g })),
-        } as NotionMultiSelectPropType;
+        ? ({
+            type: NotionPropTypesEnum.MULTI_SELECT,
+            multi_select: value ? [{ name: value.toString() }] : [],
+          } as NotionMultiSelectPropType)
+        : ({
+            type: NotionPropTypesEnum.MULTI_SELECT,
+            multi_select: (value || []).map((g: string) => ({ name: g })),
+          } as NotionMultiSelectPropType);
     case NotionPropTypesEnum.RICH_TEXT:
       return {
         type: NotionPropTypesEnum.RICH_TEXT,

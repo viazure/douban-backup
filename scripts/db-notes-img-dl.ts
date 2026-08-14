@@ -1,9 +1,9 @@
 /*
  * Use to download images from exported 豆瓣日记 md files
-*/
+ */
 
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 import { promisify } from 'node:util';
 import download from 'image-downloader';
 import { sleep } from '../src/utils';
@@ -21,7 +21,8 @@ const IMG_PREFIX = '/assets/images/'; // for my blog setting
 
 (async () => {
   const notesFiles = await readDir(DIR);
-  let COUNT = 0, FAILED_URLS: string[] = [];
+  let COUNT = 0,
+    FAILED_URLS: string[] = [];
   for (const notesFile of notesFiles) {
     let basename = path.basename(notesFile); // 2020-07-08-filename.md
     basename = basename.match(/^\d{4}-\d{2}-\d{2}-(.+)\.md$/)?.[1].replace(/\s/g, '-')!; // filename, no .md, use as image folder name
@@ -36,14 +37,15 @@ const IMG_PREFIX = '/assets/images/'; // for my blog setting
     if (imgs.length > 0) {
       console.log(basename, ' has ', imgs.length, ' images.');
       const imgDir = path.resolve(__dirname, path.join(IMG_DIR, basename));
-      await mkDir(imgDir, {recursive: true}); // mkdir for images
+      await mkDir(imgDir, { recursive: true }); // mkdir for images
 
       for (const url of imgs) {
-        await download.image({
-          url,
-          dest: imgDir,
-        })
-          .then(({filename}) => {
+        await download
+          .image({
+            url,
+            dest: imgDir,
+          })
+          .then(({ filename }) => {
             console.log('Saved to', filename);
             COUNT++;
           })

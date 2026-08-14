@@ -8,11 +8,10 @@ on:
   schedule:
     # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#scheduled-events
     # Runs every 6 hours
-    - cron:  '0 */6 * * *'
+    - cron: '0 */6 * * *'
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     strategy:
@@ -30,12 +29,21 @@ jobs:
       DOUBAN_USER_ID: ${{ secrets.DOUBAN_USER_ID }}
       NEODB_API_TOKEN: ${{ secrets.NEODB_API_TOKEN }}
       NEODB_VISIBILITY: ${{ vars.NEODB_VISIBILITY || '2' }}
+      BANGUMI_ACCESS_TOKEN: ${{ secrets.BANGUMI_ACCESS_TOKEN }}
+      BANGUMI_PRIVATE: ${{ vars.BANGUMI_PRIVATE || 'false' }}
+      BANGUMI_COLLECTION_LIMIT: ${{ vars.BANGUMI_COLLECTION_LIMIT || '50' }}
+      BANGUMI_USER_AGENT: ${{ vars.BANGUMI_USER_AGENT || '' }}
+      BANGUMI_FULL_SYNC: ${{ vars.BANGUMI_FULL_SYNC || '0' }}
+      SYNC_DOUBAN_NOTION: ${{ vars.SYNC_DOUBAN_NOTION || '0' }}
+      SYNC_DOUBAN_NEODB: ${{ vars.SYNC_DOUBAN_NEODB || '1' }}
+      SYNC_DOUBAN_BANGUMI: ${{ vars.SYNC_DOUBAN_BANGUMI || '1' }}
+      SYNC_BANGUMI_NEODB: ${{ vars.SYNC_BANGUMI_NEODB || '1' }}
 
     steps:
-    - uses: actions/checkout@v6
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v6
-      with:
-        node-version: ${{ matrix.node-version }}
-    - run: npm ci
-    - run: npm run sync || exit 1
+      - uses: actions/checkout@v6
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci
+      - run: npm run sync || exit 1
