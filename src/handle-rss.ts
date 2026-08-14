@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import dotenv from 'dotenv';
+import got from 'got';
 import { JSDOM } from 'jsdom';
 import { consola } from 'consola';
 import {
@@ -21,17 +22,37 @@ type ItemInfo = {
 
 dotenv.config();
 
+const DOUBAN_RSS_UA =
+  process.env.DOUBAN_RSS_USER_AGENT ||
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 export async function fetchRSSFeeds(): Promise<RSSFeedItem[]> {
   const DOUBAN_USER_ID = process.env.DOUBAN_USER_ID;
+  if (!DOUBAN_USER_ID) {
+    throw new Error('DOUBAN_USER_ID is not set');
+  }
+
+  const url = `https://www.douban.com/feed/people/${DOUBAN_USER_ID}/interests`;
   const parser = new Parser();
+
   try {
-    const feeds = await parser.parseURL(
-      `https://www.douban.com/feed/people/${DOUBAN_USER_ID}/interests`,
-    );
+    // Douban often 403s bare requests from CI; use a browser-like UA via got.
+    const xml = await got(url, {
+      headers: {
+        'User-Agent': DOUBAN_RSS_UA,
+        Accept:
+          'application/atom+xml, application/rss+xml, application/xml, text/xml, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        Referer: 'https://www.douban.com/',
+      },
+      timeout: { request: 20000 },
+    }).text();
+
+    const feeds = await parser.parseString(xml);
     return feeds.items;
   } catch (error) {
     consola.error('Failed to parse RSS url: ', error);
-    process.exit(1);
+    throw error;
   }
 }
 

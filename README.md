@@ -151,6 +151,8 @@ SYNC_DOUBAN_BANGUMI=1
 SYNC_BANGUMI_NEODB=1
 ```
 
+若 GitHub Actions 拉豆瓣 RSS 出现 `403`，多半是豆瓣拦截机房 IP / 缺浏览器 UA。脚本已带浏览器 UA；若仍 403，可设 `DOUBAN_RSS_USER_AGENT`，或暂时只开 `SYNC_BANGUMI_NEODB`（豆瓣失败时 Bangumi→NeoDB 仍会继续跑）。
+
 ## 同时同步标记到 NeoDB
 
 > [NeoDB 文档](https://neodb.social/developer/)
