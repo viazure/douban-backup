@@ -1,8 +1,14 @@
 import dotenv from 'dotenv';
-import got from 'got';
+import got, { HTTPError } from 'got';
 import { consola } from 'consola';
 import { DOUBAN_EXPRESSED_STATUSES } from './const';
-import { ItemCategory, ItemStatus, type FeedItem } from './types';
+import {
+  ItemCategory,
+  ItemStatus,
+  type BangumiSubjectType,
+  type FeedItem,
+  type NeodbProgressType,
+} from './types';
 import { sleep } from './utils';
 
 dotenv.config();
@@ -27,7 +33,12 @@ export type NeodbItem = {
   cover_image_url: string;
   rating: number;
   rating_count: number;
+  localized_title?: { lang?: string; text?: string }[];
 };
+
+/** NeoDB /api/catalog/search category filter */
+export type NeodbSearchCategory =
+  'book' | 'movie' | 'tv' | 'movie,tv' | 'music' | 'game' | 'podcast' | 'performance';
 
 export type NeodbMark = {
   shelf_type: ItemStatus | string;
@@ -147,6 +158,110 @@ export async function markNeodbItem(
   }
 }
 
+export type NeodbProgress = {
+  type: NeodbProgressType | null;
+  value: string | null;
+};
+
+function progressHeaders(): Record<string, string> {
+  return {
+    Authorization: `Bearer ${neodbToken}`,
+    accept: 'application/json',
+  };
+}
+
+function absoluteNeodbUrl(url: string): string {
+  return url.startsWith('http') ? url : `https://neodb.social${url}`;
+}
+
+function redirectUrlFromError(error: HTTPError): string | null {
+  const location = error.response.headers.location;
+  if (typeof location === 'string' && location) {
+    return absoluteNeodbUrl(location);
+  }
+  let body: unknown = error.response.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      return null;
+    }
+  }
+  if (
+    body &&
+    typeof body === 'object' &&
+    'url' in body &&
+    typeof body.url === 'string'
+  ) {
+    return absoluteNeodbUrl(body.url);
+  }
+  return null;
+}
+
+async function neodbProgressRequest<T>(
+  method: 'get' | 'post',
+  url: string,
+  json?: { type: NeodbProgressType; value: string },
+  retried = false,
+): Promise<T | null> {
+  if (!neodbToken) {
+    return null;
+  }
+
+  try {
+    const options = {
+      headers: progressHeaders(),
+      followRedirect: false,
+      throwHttpErrors: true,
+      ...(json ? { json } : {}),
+    };
+    if (method === 'post') {
+      return (await got.post(url, options).json()) as T;
+    }
+    return (await got(url, options).json()) as T;
+  } catch (error) {
+    const status = error instanceof HTTPError ? error.response.statusCode : 0;
+    // GET merge → 302; POST/DELETE merge → 307. Retry once against returned url.
+    if (error instanceof HTTPError && (status === 302 || status === 307) && !retried) {
+      const redirected = redirectUrlFromError(error);
+      if (redirected) {
+        consola.info('NeoDB progress redirected, retry: ', redirected);
+        return neodbProgressRequest<T>(method, redirected, json, true);
+      }
+    }
+    if (error instanceof HTTPError && status === 404) {
+      return null;
+    }
+    consola.error('NeoDB progress request failed: ', error);
+    return null;
+  }
+}
+
+function neodbProgressUrl(uuid: string): string {
+  return `https://neodb.social/api/me/shelf/item/${uuid}/progress`;
+}
+
+export async function getNeodbProgress(uuid: string): Promise<NeodbProgress | null> {
+  return neodbProgressRequest<NeodbProgress>('get', neodbProgressUrl(uuid));
+}
+
+export async function setNeodbProgress(
+  neodbItem: NeodbItem,
+  progress: { type: NeodbProgressType; value: string },
+): Promise<boolean> {
+  const label = `${neodbItem.title || neodbItem.display_title}[${neodbItem.uuid}]`;
+  consola.info(
+    'Going to set NeoDB progress: ',
+    `${label} ${progress.type}=${progress.value}`,
+  );
+  const result = await neodbProgressRequest<NeodbProgress>(
+    'post',
+    neodbProgressUrl(neodbItem.uuid),
+    progress,
+  );
+  return result != null;
+}
+
 /**
  * Sync a FeedItem to NeoDB: fetch by link, compare mark, update if needed.
  */
@@ -187,8 +302,9 @@ export async function syncFeedItemToNeodb(item: FeedItem): Promise<void> {
   const sameStatus = mark.shelf_type === item.status;
   const sameComment = (mark.comment_text || '') === (item.comment || '');
   const sameRating = (mark.rating_grade || 0) === desiredGrade;
+  const sameVisibility = (mark.visibility ?? neodbVisibility) === neodbVisibility;
 
-  if (sameStatus && sameComment && sameRating) {
+  if (sameStatus && sameComment && sameRating && sameVisibility) {
     consola.info('NeoDB mark unchanged, skip: ', `${neodbItem.title}[${item.link}]`);
     return;
   }
@@ -237,13 +353,153 @@ export function extractDoubanUrlFromNeodb(neodbItem: NeodbItem): string | null {
   return null;
 }
 
+export function bangumiSubjectTypeToNeodbSearchCategory(
+  subjectType: BangumiSubjectType,
+): NeodbSearchCategory | undefined {
+  switch (subjectType) {
+    case 1:
+      return 'book';
+    case 2:
+    case 6:
+      return 'movie,tv';
+    case 3:
+      return 'music';
+    case 4:
+      return 'game';
+    default:
+      return undefined;
+  }
+}
+
+function normalizeTitleKey(title: string): string {
+  return title.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+function collectNeodbItemTitleKeys(item: NeodbItem): Set<string> {
+  const keys = new Set<string>();
+  for (const raw of [
+    item.title,
+    item.display_title,
+    ...(item.localized_title || []).map((t) => t.text),
+  ]) {
+    if (!raw?.trim()) continue;
+    keys.add(normalizeTitleKey(raw));
+  }
+  return keys;
+}
+
+function uniqueNonEmptyTitles(titles: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const title of titles) {
+    const trimmed = title?.trim();
+    if (!trimmed) continue;
+    const key = normalizeTitleKey(trimmed);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+/**
+ * Search NeoDB catalog (internal index only; does not fetch external URLs).
+ */
+export async function searchNeodbCatalog(
+  query: string,
+  category?: NeodbSearchCategory,
+): Promise<NeodbItem[]> {
+  const q = query.trim();
+  if (!q) {
+    return [];
+  }
+  try {
+    const searchParams: Record<string, string | number> = { query: q, page: 1 };
+    if (category) {
+      searchParams.category = category;
+    }
+    const result = (await got('https://neodb.social/api/catalog/search', {
+      searchParams,
+      headers: { accept: 'application/json' },
+    }).json()) as { data?: NeodbItem[] };
+    return result.data || [];
+  } catch (error: any) {
+    consola.error('NeoDB catalog search failed: ', error.code ?? error.message);
+    return [];
+  }
+}
+
+/**
+ * Find a Douban-linked catalog twin by exact title match when external_resources
+ * on the Bangumi-fetched item do not already include a Douban URL.
+ */
+export async function findDoubanLinkedTwinByTitle(
+  fromBangumi: NeodbItem,
+  titles: Array<string | null | undefined>,
+  category?: NeodbSearchCategory,
+): Promise<NeodbItem | null> {
+  const queries = uniqueNonEmptyTitles([
+    ...titles,
+    fromBangumi.title,
+    fromBangumi.display_title,
+  ]);
+  if (!queries.length) {
+    return null;
+  }
+
+  const queryKeys = new Set(queries.map(normalizeTitleKey));
+  const categories: Array<NeodbSearchCategory | undefined> = category
+    ? [category, undefined]
+    : [undefined];
+  const seenUuid = new Set<string>([fromBangumi.uuid]);
+
+  for (const cat of categories) {
+    for (const query of queries) {
+      const hits = await searchNeodbCatalog(query, cat);
+      for (const hit of hits) {
+        if (!hit.uuid || seenUuid.has(hit.uuid)) continue;
+        seenUuid.add(hit.uuid);
+        if (!extractDoubanUrlFromNeodb(hit)) continue;
+
+        const hitKeys = collectNeodbItemTitleKeys(hit);
+        let matched = false;
+        for (const key of queryKeys) {
+          if (hitKeys.has(key)) {
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) continue;
+
+        consola.info(
+          'NeoDB Douban twin found via title search: ',
+          `${fromBangumi.uuid} → ${hit.uuid} (${hit.title || hit.display_title})`,
+        );
+        return hit;
+      }
+    }
+  }
+
+  return null;
+}
+
+export type ResolveBangumiNeodbOptions = {
+  /** Candidate titles from Bangumi (name_cn / name). */
+  titles?: Array<string | null | undefined>;
+  subjectType?: BangumiSubjectType;
+};
+
 /**
  * Resolve NeoDB catalog item for a Bangumi URL, preferring the Douban-linked
  * twin when NeoDB has separate entries for the same work.
  * This keeps Bangumi→NeoDB marks on the same uuid as Douban→NeoDB.
+ *
+ * 1) Prefer Douban URL already on the Bangumi-fetched item's external_resources
+ * 2) Else search catalog by title for an exact-title hit that has a Douban link
  */
 export async function resolveNeodbItemForBangumiUrl(
   bangumiUrl: string,
+  options: ResolveBangumiNeodbOptions = {},
 ): Promise<NeodbItem | null> {
   const fromBangumi = await fetchNeodbItemByUrl(bangumiUrl);
   if (!fromBangumi?.uuid) {
@@ -251,18 +507,49 @@ export async function resolveNeodbItemForBangumiUrl(
   }
 
   const doubanUrl = extractDoubanUrlFromNeodb(fromBangumi);
-  if (!doubanUrl) {
+  if (doubanUrl) {
+    const fromDouban = await fetchNeodbItemByUrl(doubanUrl);
+    if (fromDouban?.uuid && fromDouban.uuid !== fromBangumi.uuid) {
+      consola.info(
+        'NeoDB has separate Douban/Bangumi catalog entries; prefer Douban twin: ',
+        `${fromBangumi.uuid} → ${fromDouban.uuid}`,
+      );
+      return fromDouban;
+    }
     return fromBangumi;
   }
 
-  const fromDouban = await fetchNeodbItemByUrl(doubanUrl);
-  if (!fromDouban?.uuid || fromDouban.uuid === fromBangumi.uuid) {
-    return fromBangumi;
-  }
+  const category =
+    options.subjectType != null
+      ? bangumiSubjectTypeToNeodbSearchCategory(options.subjectType)
+      : neodbCategoryToSearchCategory(fromBangumi.category);
 
-  consola.info(
-    'NeoDB has separate Douban/Bangumi catalog entries; prefer Douban twin: ',
-    `${fromBangumi.uuid} → ${fromDouban.uuid}`,
+  const twin = await findDoubanLinkedTwinByTitle(
+    fromBangumi,
+    options.titles || [],
+    category,
   );
-  return fromDouban;
+  return twin || fromBangumi;
+}
+
+function neodbCategoryToSearchCategory(
+  category: string | undefined,
+): NeodbSearchCategory | undefined {
+  switch (category) {
+    case 'book':
+      return 'book';
+    case 'movie':
+    case 'tv':
+      return 'movie,tv';
+    case 'music':
+      return 'music';
+    case 'game':
+      return 'game';
+    case 'podcast':
+      return 'podcast';
+    case 'performance':
+      return 'performance';
+    default:
+      return undefined;
+  }
 }

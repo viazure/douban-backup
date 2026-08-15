@@ -53,6 +53,8 @@ export type BangumiCollection = {
   type: BangumiCollectionType;
   comment?: string | null;
   tags?: string[];
+  ep_status?: number;
+  vol_status?: number;
   updated_at: string;
   private: boolean;
   subject?: BangumiSubject & {

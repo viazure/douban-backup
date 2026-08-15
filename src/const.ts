@@ -5,6 +5,7 @@ import {
   ItemCategory,
   type BangumiSubjectType,
   type BangumiCollectionType,
+  type NeodbProgressType,
 } from './types';
 
 export const ALL_STATUS =
@@ -127,3 +128,38 @@ export const CATEGORY_TO_BANGUMI_TYPES: Partial<
   [ItemCategory.Game]: [4],
   // Drama (话剧) has no Bangumi equivalent; only sync when NeoDB already has a Bangumi link.
 };
+
+export type NeodbProgressPayload = {
+  type: NeodbProgressType;
+  value: string;
+};
+
+/**
+ * Map Bangumi collection progress to a single NeoDB progress pair.
+ * Games are skipped. Zero counts are skipped (do not clear NeoDB progress).
+ */
+export function bangumiCollectionToNeodbProgress(collection: {
+  subject_type: BangumiSubjectType;
+  ep_status?: number;
+  vol_status?: number;
+}): NeodbProgressPayload | null {
+  const ep = collection.ep_status ?? 0;
+  const vol = collection.vol_status ?? 0;
+
+  switch (collection.subject_type) {
+    case 2:
+    case 6:
+      if (ep <= 0) return null;
+      return { type: 'episode', value: String(ep) };
+    case 1:
+      if (vol > 0) return { type: 'chapter', value: String(vol) };
+      if (ep > 0) return { type: 'chapter', value: String(ep) };
+      return null;
+    case 3:
+      if (ep <= 0) return null;
+      return { type: 'track', value: String(ep) };
+    case 4:
+    default:
+      return null;
+  }
+}

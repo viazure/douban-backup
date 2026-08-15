@@ -159,9 +159,17 @@ SYNC_BANGUMI_NEODB=1
 
 在文档页面先生成一个 Token，然后给 repo 添加一个 secret 叫 `NEODB_API_TOKEN`。
 
-可选：添加 `NEODB_VISIBILITY`（repository variable）来控制同步到 NeoDB 时的可见性（默认值为 `2`）。
+可选：添加 `NEODB_VISIBILITY`（本地 `.env` 或 GitHub Actions repository variable）控制同步到 NeoDB 时标记的可见性。对应标记弹窗里的三个单选：
 
-需同时开启 `SYNC_DOUBAN_NEODB=1`（默认已开）。
+| 值  | 含义                       |
+| --- | -------------------------- |
+| `0` | 公开                       |
+| `1` | 仅关注者                   |
+| `2` | 自己和提到的人（**默认**） |
+
+Douban→NeoDB 与 Bangumi→NeoDB 写入 mark 时都会带上该值；若与 NeoDB 上已有可见性不同，同步会更新（不会因「状态/评论/评分相同」而跳过）。
+
+需同时开启 `SYNC_DOUBAN_NEODB=1`（默认已开）才会走豆瓣这条；Bangumi→NeoDB 另见下方。
 
 ## 同步到 Bangumi（Douban → Bangumi）
 
@@ -188,21 +196,23 @@ SYNC_BANGUMI_NEODB=1
 
 Bangumi→NeoDB 状态映射：想看→wishlist，在看→progress，看过→complete，**搁置→progress（在玩）**，**抛弃→dropped**。
 
-重复条目：NeoDB 可能对同一作品有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 会优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）。若两侧尚未互链，仍可能各标一条，需等 NeoDB 目录合并或补全外链。
+重复条目：NeoDB 可能对同一作品有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 会优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）：先看 Bangumi 条目的 `external_resources`，没有则按标题精确搜索带豆瓣链接的 twin。若仍对不上，仍可能各标一条，需等 NeoDB 目录合并或补全外链。已出现的重复可手动删掉 Bangumi 源那条标记，再同步即可落到豆瓣源。
 
 覆盖类型：书籍、动画/三次元影视、音乐、游戏。
 
 ## 从 Bangumi 同步到 NeoDB（Bangumi → NeoDB）
 
-同时配置了 `BANGUMI_ACCESS_TOKEN` 与 `NEODB_API_TOKEN`，且 `SYNC_BANGUMI_NEODB=1`（默认已开）时，定时任务会额外拉取最近一批 Bangumi 收藏（默认 50 条）并同步到 NeoDB。
+同时配置了 `BANGUMI_ACCESS_TOKEN` 与 `NEODB_API_TOKEN`，且 `SYNC_BANGUMI_NEODB=1`（默认已开）时，定时任务会额外拉取最近一批 Bangumi 收藏（默认 50 条）并同步到 NeoDB。标记未变时仍会写入进度。进度来自收藏里的 `ep_status` / `vol_status`（不再请求 Bangumi 章节接口）：动画/三次元用 `ep_status`→`episode`，书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐用 `ep_status`→`track`；游戏不同步进度。数值为 0 时不写、也不删除 NeoDB 上已有进度。豆瓣没有进度，Douban→NeoDB 不写、不删 progress。
 
-首次全量迁移请手动运行（不要放进默认 cron）：
+首次全量迁移，或需要把历史条目的可见性等按当前配置刷一遍时，请手动运行（不要放进默认 cron）：
 
 ```bash
 npm run sync:bangumi-full
 ```
 
-或在本地 / Actions 设置环境变量 `BANGUMI_FULL_SYNC=1` 后执行 `npm run sync`。
+这只会跑 **Bangumi→NeoDB**（分页拉完你的 Bangumi 收藏），**不会**跑豆瓣 RSS，也**不会**改 Bangumi 上的收藏。对已在 NeoDB 上的同一 uuid，会按 Bangumi 的状态/评分/评论/`NEODB_VISIBILITY` 更新 mark，并尽量同步进度；与豆瓣先前写入冲突时，以这次 Bangumi→NeoDB 写到的字段为准（同一条 uuid 上后写覆盖先写的对应字段）。
+
+也可以在本地 / Actions 设 `BANGUMI_FULL_SYNC=1` 后执行 `npm run sync`（会先跑已开启的 Douban→*，再全量 Bangumi→NeoDB）。
 
 ## todo
 

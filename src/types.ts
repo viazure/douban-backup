@@ -40,6 +40,17 @@ export type BangumiSubjectType = 1 | 2 | 3 | 4 | 6;
 /** Bangumi CollectionType: 1 wish, 2 done, 3 doing, 4 on-hold, 5 dropped */
 export type BangumiCollectionType = 1 | 2 | 3 | 4 | 5;
 
+/** NeoDB shelf progress type */
+export type NeodbProgressType =
+  | 'page'
+  | 'chapter'
+  | 'part'
+  | 'episode'
+  | 'track'
+  | 'cycle'
+  | 'timestamp'
+  | 'percentage';
+
 export enum NotionPropTypesEnum {
   TITLE = 'title',
   RICH_TEXT = 'rich_text',

@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { consola } from 'consola';
 import type { BangumiCollectionType } from './types';
-import { BANGUMI_TO_NEODB_STATUS } from './const';
+import { BANGUMI_TO_NEODB_STATUS, bangumiCollectionToNeodbProgress } from './const';
 import {
   bangumiCollectionLimit,
   bangumiSubjectUrl,
@@ -13,9 +13,13 @@ import {
 } from './bangumi';
 import {
   getNeodbMark,
+  getNeodbProgress,
   markNeodbItem,
   neodbToken,
+  neodbVisibility,
   resolveNeodbItemForBangumiUrl,
+  setNeodbProgress,
+  type NeodbItem,
 } from './neodb';
 
 dotenv.config();
@@ -83,7 +87,10 @@ async function syncCollectionToNeodb(collection: BangumiCollection): Promise<voi
     `subject/${collection.subject_id}`;
   consola.info('Bangumi → NeoDB: ', `${title}[${url}]`);
 
-  const neodbItem = await resolveNeodbItemForBangumiUrl(url);
+  const neodbItem = await resolveNeodbItemForBangumiUrl(url, {
+    titles: [collection.subject?.name_cn, collection.subject?.name],
+    subjectType: collection.subject_type,
+  });
   if (!neodbItem?.uuid) {
     consola.warn('NeoDB could not resolve Bangumi URL, skip: ', url);
     return;
@@ -96,20 +103,48 @@ async function syncCollectionToNeodb(collection: BangumiCollection): Promise<voi
   const createdTime = collection.updated_at || undefined;
 
   const mark = await getNeodbMark(neodbItem.uuid);
+  let markUnchanged = false;
   if (mark) {
     const sameStatus = mark.shelf_type === shelfType;
     const sameComment = (mark.comment_text || '') === comment;
     const sameRating = (mark.rating_grade || 0) === ratingGrade;
-    if (sameStatus && sameComment && sameRating) {
-      consola.info('NeoDB mark unchanged, skip: ', title);
-      return;
-    }
+    const sameVisibility = (mark.visibility ?? neodbVisibility) === neodbVisibility;
+    markUnchanged = sameStatus && sameComment && sameRating && sameVisibility;
   }
 
-  await markNeodbItem(neodbItem, {
-    shelfType,
-    comment,
-    ratingGrade,
-    createdTime,
-  });
+  if (markUnchanged) {
+    consola.info('NeoDB mark unchanged, skip: ', title);
+  } else {
+    await markNeodbItem(neodbItem, {
+      shelfType,
+      comment,
+      ratingGrade,
+      createdTime,
+    });
+  }
+
+  await syncProgressToNeodb(collection, neodbItem, title);
+}
+
+async function syncProgressToNeodb(
+  collection: BangumiCollection,
+  neodbItem: NeodbItem,
+  title: string,
+): Promise<void> {
+  const progress = bangumiCollectionToNeodbProgress(collection);
+  if (!progress) {
+    return;
+  }
+
+  const existing = await getNeodbProgress(neodbItem.uuid);
+  if (
+    existing &&
+    existing.type === progress.type &&
+    String(existing.value ?? '') === progress.value
+  ) {
+    consola.info('NeoDB progress unchanged, skip: ', title);
+    return;
+  }
+
+  await setNeodbProgress(neodbItem, progress);
 }
