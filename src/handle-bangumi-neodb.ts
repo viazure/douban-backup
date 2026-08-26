@@ -1,7 +1,11 @@
 import dotenv from 'dotenv';
 import { consola } from 'consola';
 import type { BangumiCollectionType } from './types';
-import { BANGUMI_TO_NEODB_STATUS, bangumiCollectionToNeodbProgress } from './const';
+import {
+  BANGUMI_TO_NEODB_STATUS,
+  bangumiCollectionToNeodbProgress,
+  neodbItemSupportsProgress,
+} from './const';
 import {
   bangumiCollectionLimit,
   bangumiSubjectUrl,
@@ -133,6 +137,14 @@ async function syncProgressToNeodb(
 ): Promise<void> {
   const progress = bangumiCollectionToNeodbProgress(collection);
   if (!progress) {
+    return;
+  }
+
+  if (!neodbItemSupportsProgress(neodbItem, progress)) {
+    consola.info(
+      'NeoDB progress not applicable for catalog category, skip: ',
+      `${title} (${neodbItem.category}/${progress.type})`,
+    );
     return;
   }
 

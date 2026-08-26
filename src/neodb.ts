@@ -232,6 +232,15 @@ async function neodbProgressRequest<T>(
     if (error instanceof HTTPError && status === 404) {
       return null;
     }
+    if (error instanceof HTTPError) {
+      const body = error.response.body;
+      consola.error(
+        'NeoDB progress request failed: ',
+        `${status} ${error.message}`,
+        typeof body === 'string' ? body : body,
+      );
+      return null;
+    }
     consola.error('NeoDB progress request failed: ', error);
     return null;
   }

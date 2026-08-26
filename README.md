@@ -151,7 +151,7 @@ SYNC_DOUBAN_BANGUMI=1
 SYNC_BANGUMI_NEODB=1
 ```
 
-若 GitHub Actions 拉豆瓣 RSS 出现 `403`，多半是豆瓣拦截机房 IP / 缺浏览器 UA。脚本已带浏览器 UA；若仍 403，可设 `DOUBAN_RSS_USER_AGENT`，或暂时只开 `SYNC_BANGUMI_NEODB`（豆瓣失败时 Bangumi→NeoDB 仍会继续跑）。
+若 GitHub Actions 拉豆瓣 RSS 出现超时 / `403` / `401`，多半是豆瓣拦截机房 IP 或缺浏览器 UA。脚本已带浏览器 UA，并对超时与部分 5xx/403 做有限重试；若仍失败，可设 `DOUBAN_RSS_USER_AGENT`，或暂时只开 `SYNC_BANGUMI_NEODB`（豆瓣失败时 Bangumi→NeoDB 仍会继续跑，但 workflow 会以非 0 退出提示 Douban 段失败）。
 
 ## 同时同步标记到 NeoDB
 
@@ -202,7 +202,7 @@ Bangumi→NeoDB 状态映射：想看→wishlist，在看→progress，看过→
 
 ## 从 Bangumi 同步到 NeoDB（Bangumi → NeoDB）
 
-同时配置了 `BANGUMI_ACCESS_TOKEN` 与 `NEODB_API_TOKEN`，且 `SYNC_BANGUMI_NEODB=1`（默认已开）时，定时任务会额外拉取最近一批 Bangumi 收藏（默认 50 条）并同步到 NeoDB。标记未变时仍会写入进度。进度来自收藏里的 `ep_status` / `vol_status`（不再请求 Bangumi 章节接口）：动画/三次元用 `ep_status`→`episode`，书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐用 `ep_status`→`track`；游戏不同步进度。数值为 0 时不写、也不删除 NeoDB 上已有进度。豆瓣没有进度，Douban→NeoDB 不写、不删 progress。
+同时配置了 `BANGUMI_ACCESS_TOKEN` 与 `NEODB_API_TOKEN`，且 `SYNC_BANGUMI_NEODB=1`（默认已开）时，定时任务会额外拉取最近一批 Bangumi 收藏（默认 50 条）并同步到 NeoDB。标记未变时仍会写入进度。进度来自收藏里的 `ep_status` / `vol_status`（不再请求 Bangumi 章节接口）：动画/三次元剧集用 `ep_status`→`episode`（NeoDB 分类为 `movie` 的电影/剧场版不写进度，避免 API 400），书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐用 `ep_status`→`track`；游戏不同步进度。数值为 0 时不写、也不删除 NeoDB 上已有进度。豆瓣没有进度，Douban→NeoDB 不写、不删 progress。
 
 首次全量迁移，或需要把历史条目的可见性等按当前配置刷一遍时，请手动运行（不要放进默认 cron）：
 

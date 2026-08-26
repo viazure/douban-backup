@@ -137,6 +137,7 @@ export type NeodbProgressPayload = {
 /**
  * Map Bangumi collection progress to a single NeoDB progress pair.
  * Games are skipped. Zero counts are skipped (do not clear NeoDB progress).
+ * Caller should also filter by NeoDB item category (e.g. movies reject episode).
  */
 export function bangumiCollectionToNeodbProgress(collection: {
   subject_type: BangumiSubjectType;
@@ -161,5 +162,31 @@ export function bangumiCollectionToNeodbProgress(collection: {
     case 4:
     default:
       return null;
+  }
+}
+
+/**
+ * Whether NeoDB accepts this progress type for the catalog item category.
+ * Movies often share Bangumi subject_type with TV but reject `episode` (HTTP 400).
+ */
+export function neodbItemSupportsProgress(
+  neodbItem: { category?: string; type?: string },
+  progress: NeodbProgressPayload,
+): boolean {
+  const cat = String(neodbItem.category || '').toLowerCase();
+  const type = String(neodbItem.type || '').toLowerCase();
+
+  switch (progress.type) {
+    case 'episode':
+      // TV / seasons only. movie / performance / etc. → skip.
+      return cat === 'tv';
+    case 'chapter':
+    case 'page':
+      return cat === 'book';
+    case 'track':
+      return cat === 'music';
+    default:
+      // Unknown combo: do not POST (avoid noisy 400s).
+      return !(cat === 'movie' || type === 'movie');
   }
 }

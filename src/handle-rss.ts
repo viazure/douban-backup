@@ -37,6 +37,7 @@ export async function fetchRSSFeeds(): Promise<RSSFeedItem[]> {
 
   try {
     // Douban often 403s bare requests from CI; use a browser-like UA via got.
+    // Timeouts / transient 5xx are common on Actions — retry a few times.
     const xml = await got(url, {
       headers: {
         'User-Agent': DOUBAN_RSS_UA,
@@ -45,13 +46,47 @@ export async function fetchRSSFeeds(): Promise<RSSFeedItem[]> {
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         Referer: 'https://www.douban.com/',
       },
-      timeout: { request: 20000 },
+      timeout: { request: 60000 },
+      retry: {
+        limit: 3,
+        methods: ['GET'],
+        statusCodes: [401, 403, 408, 413, 429, 500, 502, 503, 504],
+        errorCodes: [
+          'ETIMEDOUT',
+          'ECONNRESET',
+          'EADDRINUSE',
+          'ECONNREFUSED',
+          'EPIPE',
+          'ENOTFOUND',
+          'ENETUNREACH',
+          'EAI_AGAIN',
+        ],
+        calculateDelay: ({ attemptCount, error, computedValue }) => {
+          // Cap 401/403 retries — often permanent WAF blocks.
+          const status = error?.response?.statusCode;
+          if ((status === 401 || status === 403) && attemptCount <= 2) {
+            return attemptCount * 2500;
+          }
+          if (status === 401 || status === 403) {
+            return 0;
+          }
+          return computedValue;
+        },
+      },
     }).text();
 
     const feeds = await parser.parseString(xml);
     return feeds.items;
-  } catch (error) {
-    consola.error('Failed to parse RSS url: ', error);
+  } catch (error: any) {
+    const status = error?.response?.statusCode;
+    if (status === 401 || status === 403) {
+      consola.error(
+        `Douban RSS returned ${status} (blocked or need browser session). ` +
+          'CI/机房 IP 常被拦；可设 DOUBAN_RSS_USER_AGENT，或暂时只开 SYNC_BANGUMI_NEODB。',
+      );
+    } else {
+      consola.error('Failed to parse RSS url: ', error);
+    }
     throw error;
   }
 }
