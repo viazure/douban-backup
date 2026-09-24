@@ -38,22 +38,22 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/jsdom": "^28.0.3",
+    "@types/jsdom": "^30.0.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0"
   },
   "dependencies": {
     "@notionhq/client": "^5.26.0",
     "consola": "^3.4.2",
-    "dayjs": "^1.11.21",
-    "dotenv": "^17.4.2",
+    "dayjs": "^1.11.23",
+    "dotenv": "^18.0.0",
     "fast-csv": "^5.0.7",
     "got": "^16.0.0",
-    "jsdom": "^30.0.1",
+    "jsdom": "^30.1.0",
     "rss-parser": "^3.13.0",
     "tough-cookie": "^6.0.2"
   }
