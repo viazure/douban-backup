@@ -26,6 +26,7 @@ import {
   setNeodbProgress,
   type NeodbItem,
 } from './neodb';
+import { mergeNeodbMark } from './neodb-merge';
 import {
   bangumiSubjectTypesForAllowlist,
   needsBangumiMangaPlatformCheck,
@@ -144,22 +145,33 @@ async function syncCollectionToNeodb(
   const createdTime = collection.updated_at || undefined;
 
   const mark = await getNeodbMark(neodbItem.uuid);
-  let markUnchanged = false;
-  if (mark) {
-    const sameStatus = mark.shelf_type === shelfType;
-    const sameComment = (mark.comment_text || '') === comment;
-    const sameRating = (mark.rating_grade || 0) === ratingGrade;
-    const sameVisibility = (mark.visibility ?? neodbVisibility) === neodbVisibility;
-    markUnchanged = sameStatus && sameComment && sameRating && sameVisibility;
-  }
+  const merged = mergeNeodbMark(
+    mark,
+    { shelfType, ratingGrade, comment },
+    syncConfig.bangumiNeodbMerge,
+    neodbVisibility,
+  );
 
-  if (markUnchanged) {
+  if (!merged.shouldWrite) {
     consola.info('NeoDB mark unchanged, skip: ', title);
   } else {
+    if (merged.keptRating || merged.keptComment) {
+      consola.info(
+        'NeoDB prefer: keeping existing ',
+        [
+          merged.keptRating ? 'rating' : null,
+          merged.keptComment ? 'comment' : null,
+        ]
+          .filter(Boolean)
+          .join('+'),
+        ' on ',
+        title,
+      );
+    }
     await markNeodbItem(neodbItem, {
-      shelfType,
-      comment,
-      ratingGrade,
+      shelfType: merged.shelfType,
+      comment: merged.comment,
+      ratingGrade: merged.ratingGrade,
       createdTime,
     });
   }

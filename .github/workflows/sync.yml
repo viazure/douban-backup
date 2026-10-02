@@ -40,6 +40,8 @@ jobs:
       SYNC_DOUBAN_NEODB_CATEGORIES: ${{ vars.SYNC_DOUBAN_NEODB_CATEGORIES || '' }}
       SYNC_DOUBAN_BANGUMI_CATEGORIES: ${{ vars.SYNC_DOUBAN_BANGUMI_CATEGORIES || '' }}
       SYNC_BANGUMI_NEODB_CATEGORIES: ${{ vars.SYNC_BANGUMI_NEODB_CATEGORIES || '' }}
+      SYNC_DOUBAN_NEODB_MERGE: ${{ vars.SYNC_DOUBAN_NEODB_MERGE || 'neodb_prefer' }}
+      SYNC_BANGUMI_NEODB_MERGE: ${{ vars.SYNC_BANGUMI_NEODB_MERGE || 'neodb_prefer' }}
 
     steps:
       - uses: actions/checkout@v6

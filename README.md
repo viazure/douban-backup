@@ -1,137 +1,24 @@
 ![sync](https://github.com/viazure/douban-backup/actions/workflows/sync.yml/badge.svg)
 
-> 详细教程 -> https://zhuzi.dev/posts/2021-06-05-douban-backup-sync-notion/
->
-> 油猴脚本 -> https://greasyfork.org/en/scripts/420999
+定时把豆瓣 RSS、Bangumi 收藏同步到 NeoDB（可选：Notion、Douban→Bangumi）。Fork 自 [bambooom/douban-backup](https://github.com/bambooom/douban-backup)；上游 Notion 教程见 [博文](https://zhuzi.dev/posts/2021-06-05-douban-backup-sync-notion/)，导出可用 [油猴脚本](https://greasyfork.org/en/scripts/420999)。
 
 ```
 .
-├── archive     # 不再使用的实验时的爬虫脚本
-├── cols.json   # 可修改自定义的 Notion 表格列名
-├── .env        # 如果需要在本地 debug，可以添加这个文件
-├── scripts     # 长期不需要使用的脚本，但未来有可能需要使用
-├── src         # 会保持更新正在使用的脚本👩🏻‍💻👈
-└── userscript  # 导出时可使用的油猴脚本
+├── .github/workflows   # sync.yml（默认每 6 小时）
+├── src                 # 同步脚本
+├── scripts             # 偶用脚本
+├── userscript          # 豆瓣导出油猴脚本
+├── cols.json           # Notion 列名（仅 Notion 路径）
+└── archive             # 废弃实验代码
 ```
 
-## 从豆瓣 RSS 数据同步到 Notion 数据库
+本地：`cp .env.example .env`，填 secrets，然后 `npm ci` / `npm run sync`。Actions 运行记录：[sync workflow](https://github.com/viazure/douban-backup/actions/workflows/sync.yml)。
 
-<details>
-  <summary>使用油猴脚本 <code>export.user.js</code>导出的 CSV 数据样例（one row）</summary>
-  <pre>
-{
-  '标题': '无间双龙：这份爱，才是正义 / ウロボロス～この愛こそ正  義。',
-  '个人评分': '5',
-  '打分日期': '2015/03/21',
-  '我的短评': '5星打的绝对不是剧情！为建国，为toma，为一众cast就  是如此任性ˊ_>ˋ(1 有用)',
-  '上映日期': '2015/01/16',
-  '制片国家': '日本',
-  '条目链接': 'https://movie.douban.com/subject/25953663/'
-}
-  </pre>
-</details>
-
-<details>
-  <summary>Notion 数据库 properties 样例数据</summary>
-  <pre>
-{
-  '条目链接': {
-    id: '=jBf',
-      type: 'url',
-        url: 'https://movie.douban.com/subject/26277363/'
-  },
-  'IMDb 链接': {
-    id: '@ME}',
-      type: 'url',
-        url: 'https://www.imdb.com/title/tt5419278'
-  },
-  '主演': { id: 'X{lL', type: 'rich_text', rich_text: [[Object]] },
-  '个人评分': {
-    id: 'Z^ph',
-    type: 'multi_select',
-    multi_select: [ { id: 'FRXk', name: '5', color: 'pink' } ]
-    // multi_select: [], // empty array if no value for rating
-  },
-  '打分日期': {
-    id: 'e\\{[',
-      type: 'date',
-        date: { start: '2021-01-19', end: null }
-  },
-  '类型': {
-    id: 'pzY>',
-      type: 'multi_select',
-        multi_select: [[Object], [Object]]
-  },
-  '海报': {
-    id: 't@Fv',
-    type: 'files',
-    files: [
-    {
-      name: 'https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2524998570.jpg'
-    }
-  ]
-  },
-  '我的短评': { id: 'wG?R', type: 'rich_text', rich_text: [[Object]] },
-  '上映年份': { id: 'xghA', type: 'number', number: 2016 },
-  '导演': { id: 'y]UL', type: 'rich_text', rich_text: [[Object]] },
-  '标题': { id: 'title', type: 'title', title: [[Object]] }
-}
-  </pre>
-</details>
-
-<details>
-  <summary>豆瓣RSS 数据解析之后的例子</summary>
-  <pre>
-#竹子哟竹子#✨ 的收藏
-{
-  creator: '#竹子哟竹子#✨',
-  title: '想看白蛇传·情',
-  link: 'http://movie.douban.com/subject/34825976/',
-  pubDate: 'Mon, 31 May 2021 15:14:58 GMT',
-  'dc:creator': '#竹子哟竹子#✨',
-  content:
-    `<table><tr> <td width="80px"><a href="https://movie.douban.com/subject/34825976/" title="白蛇传·情"> <img src="https://img9.doubanio.com/view/photo/s_ratio_poster/public/p2645106865.webp" alt="白蛇传·情"></a></td> <td> <p>推荐: 很差/较差/还行/推荐/力荐</p> </td></tr></table>`,
-  contentSnippet: '',
-  guid: 'https://www.douban.com/people/MoNoMilky/interests/2898270366',
-  isoDate: '2021-05-31T15:14:58.000Z'
-}
-{
-  creator: '#竹子哟竹子#✨',
-  title: '想看大宋提刑官',
-  link: 'http://movie.douban.com/subject/2239292/',
-  pubDate: 'Mon, 31 May 2021 15:12:13 GMT',
-  'dc:creator': '#竹子哟竹子#✨',
-  content: '\n' +
-    '\n' +
-    '    <table><tr>\n' +
-    '    <td width="80px"><a href="https://movie.douban.com/subject/2239292/" title="大宋提刑官">\n' +
-    '    <img src="https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2397544089.jpg" alt="大宋提刑官"></a></td>\n' +
-    '    <td>\n' +
-    '<p>推荐: 还行</p><p>备注: 测试
-    短评第 2 行</p>'
-    '    </td></tr></table>\n',
-  contentSnippet: '推荐: 还行\n备注: 测试\n短评第 2 行',
-  guid: 'https://www.douban.com/people/MoNoMilky/interests/2898265663',
-  isoDate: '2021-05-31T15:12:13.000Z'
-}
-  </pre>
-</details>
-
----
-
-RSS 的好处一个是轻量，但又包含了个人标记的最重要的几个数据：名字、条目链接、时间、评分、短评。
-所以需求可以转换为，定时获取 RSS 更新，并对新的条目进行抓取信息并同步到 notion database。
-
-但需要注意的是，豆瓣的 RSS 数据每次都只保留 10 个，并且包括想看、想听、想读。本人的脚本同步到 Notion 的部分仅处理看过、听过、读过的条目，如果某一天集中标记数量过多，可能使 RSS 数据并未全部被 workflow 获取。
-这种情况的时候请自己手动触发脚本的运行，或者将脚本运行间隔时间改短，比如每个小时或者每两个小时。
-
-GitHub 免费用户的开源仓库，actions 暂时是完全免费，也不计时间。
-
-[查看 workflow 运行结果 ->](https://github.com/viazure/douban-backup/actions/workflows/sync.yml)
+豆瓣 RSS 每次大约只保留最近 10 条（含想\*）。Douban→NeoDB / Douban→Bangumi 会处理想/在/过；Douban→Notion 只处理看过/听过/读过等 Complete。集中标记过多时可能漏同步，可手动触发 workflow 或把 cron 改密。
 
 ## 同步路径开关
 
-每条链路可独立开关（环境变量 / GitHub Actions repository variables）。未设置时的默认值如下：
+每条链路可独立开关（环境变量 / GitHub Actions repository variables）：
 
 | Variable              | 默认 | 说明                 |
 | --------------------- | ---- | -------------------- |
@@ -146,38 +33,34 @@ GitHub 免费用户的开源仓库，actions 暂时是完全免费，也不计�
 
 每条链路可再设类别白名单（逗号分隔）。**留空 = 该链路同步全部类别**。
 
-| Variable                         | 词表                                              | 说明              |
-| -------------------------------- | ------------------------------------------------- | ----------------- |
-| `SYNC_DOUBAN_NOTION_CATEGORIES`  | `movie` `music` `book` `game` `drama`             | 豆瓣 → Notion     |
-| `SYNC_DOUBAN_NEODB_CATEGORIES`   | 同上                                              | 豆瓣 → NeoDB      |
-| `SYNC_DOUBAN_BANGUMI_CATEGORIES` | 同上                                              | 豆瓣 → Bangumi    |
-| `SYNC_BANGUMI_NEODB_CATEGORIES`  | `anime` `manga` `book` `music` `game` `real`      | Bangumi → NeoDB   |
+| Variable                         | 词表                                         | 说明            |
+| -------------------------------- | -------------------------------------------- | --------------- |
+| `SYNC_DOUBAN_NOTION_CATEGORIES`  | `movie` `music` `book` `game` `drama`        | 豆瓣 → Notion   |
+| `SYNC_DOUBAN_NEODB_CATEGORIES`   | 同上                                         | 豆瓣 → NeoDB    |
+| `SYNC_DOUBAN_BANGUMI_CATEGORIES` | 同上                                         | 豆瓣 → Bangumi  |
+| `SYNC_BANGUMI_NEODB_CATEGORIES`  | `anime` `manga` `book` `music` `game` `real` | Bangumi → NeoDB |
 
 也接受中文别名（如 `电影`、`动画`/`动漫`、`漫画`、`游戏`）。豆瓣词表对应 RSS 解析出的类别；Bangumi 词表对应条目类型（`manga` = 书籍且 `platform` 为「漫画」，不含小说/画集；`book` = 全部书籍）。
 
 若写了值但没有可识别的类别，该链路**不同步任何条目**（避免拼写错误变成全量），日志会警告。
-
-本地示例（豆瓣全部进 NeoDB / Bangumi，Bangumi→NeoDB 只要动画、漫画、游戏）：
 
 ```env
 SYNC_DOUBAN_NOTION=0
 SYNC_DOUBAN_NEODB=1
 SYNC_DOUBAN_BANGUMI=1
 SYNC_BANGUMI_NEODB=1
-SYNC_DOUBAN_NEODB_CATEGORIES=
-SYNC_DOUBAN_BANGUMI_CATEGORIES=
 SYNC_BANGUMI_NEODB_CATEGORIES=anime,manga,game
 ```
 
-若 GitHub Actions 拉豆瓣 RSS 出现超时 / `403` / `401`，多半是豆瓣拦截机房 IP 或缺浏览器 UA。脚本已带浏览器 UA，并对超时与部分 5xx/403 做有限重试；若仍失败，可设 `DOUBAN_RSS_USER_AGENT`，或暂时只开 `SYNC_BANGUMI_NEODB`（豆瓣失败时 Bangumi→NeoDB 仍会继续跑，但 workflow 会以非 0 退出提示 Douban 段失败）。
+若 Actions 拉豆瓣 RSS 出现超时 / `403` / `401`，多半是豆瓣拦机房 IP。脚本已带浏览器 UA 并有限重试；仍失败可设 `DOUBAN_RSS_USER_AGENT`，或暂时只开 `SYNC_BANGUMI_NEODB`（豆瓣失败时 Bangumi→NeoDB 仍会继续，但 workflow 以非 0 退出）。
 
-## 同时同步标记到 NeoDB
+## 同步到 NeoDB
 
 > [NeoDB 文档](https://neodb.social/developer/)
 
-在文档页面先生成一个 Token，然后给 repo 添加一个 secret 叫 `NEODB_API_TOKEN`。
+在文档页生成 Token，添加 secret `NEODB_API_TOKEN`。需开启 `SYNC_DOUBAN_NEODB` 和/或 `SYNC_BANGUMI_NEODB`（默认均开）才会写入。
 
-可选：添加 `NEODB_VISIBILITY`（本地 `.env` 或 GitHub Actions repository variable）控制同步到 NeoDB 时标记的可见性。对应标记弹窗里的三个单选：
+可选 `NEODB_VISIBILITY`（`.env` 或 repository variable）：
 
 | 值  | 含义                       |
 | --- | -------------------------- |
@@ -185,62 +68,63 @@ SYNC_BANGUMI_NEODB_CATEGORIES=anime,manga,game
 | `1` | 仅关注者                   |
 | `2` | 自己和提到的人（**默认**） |
 
-Douban→NeoDB 与 Bangumi→NeoDB 写入 mark 时都会带上该值；若与 NeoDB 上已有可见性不同，同步会更新（不会因「状态/评论/评分相同」而跳过）。
+写入 mark 时带上该值；与 NeoDB 已有可见性不同则会更新。
 
-需同时开启 `SYNC_DOUBAN_NEODB=1`（默认已开）才会走豆瓣这条；Bangumi→NeoDB 另见下方。
+### 标记合并策略
+
+作用于 Douban→NeoDB、Bangumi→NeoDB。NeoDB **没有**该条标记时，用来源全量写入。**已有**标记时：
+
+- 状态：以来源为准（Douban→NeoDB 若 NeoDB 已是 `dropped` 则整条不更新 mark）
+- 评分 / 短评：由下方 profile 决定
+- 进度：仅 Bangumi→NeoDB；有进度才写，为 0 不写也不删；不在此 profile 内
+
+| Variable                   | 默认           | 说明            |
+| -------------------------- | -------------- | --------------- |
+| `SYNC_DOUBAN_NEODB_MERGE`  | `neodb_prefer` | 豆瓣 → NeoDB    |
+| `SYNC_BANGUMI_NEODB_MERGE` | `neodb_prefer` | Bangumi → NeoDB |
+
+| 值             | 评分 / 短评                                        |
+| -------------- | -------------------------------------------------- |
+| `neodb_prefer` | NeoDB 已有非 0 评分 / 非空短评则保留，否则用来源填 |
+| `overwrite`    | 用来源覆盖评分与短评                               |
+
+```env
+SYNC_DOUBAN_NEODB_MERGE=neodb_prefer
+SYNC_BANGUMI_NEODB_MERGE=neodb_prefer
+```
 
 ## 同步到 Bangumi（Douban → Bangumi）
 
 > [Bangumi API](https://bangumi.github.io/api/)
 
-1. 打开 [个人令牌页面](https://next.bgm.tv/demo/access-token)（需先在 next.bgm.tv 登录），创建一个 Access Token。
-2. 创建时尽量选择最长有效期（常见约 1 年；官方没有永久选项）。
-3. 给 repo 添加 secret：`BANGUMI_ACCESS_TOKEN`。
-4. 保持 `SYNC_DOUBAN_BANGUMI=1`（默认已开）。
+1. 打开 [个人令牌页面](https://next.bgm.tv/demo/access-token) 创建 Access Token（尽量选最长有效期；无永久选项）。
+2. 添加 secret：`BANGUMI_ACCESS_TOKEN`。
+3. 保持 `SYNC_DOUBAN_BANGUMI=1`（默认已开）。
 
-可选 repository variables：
+可选：`BANGUMI_PRIVATE`（默认 `false`）、`BANGUMI_USER_AGENT`。
 
-| Variable                   | 默认                      | 说明                                  |
-| -------------------------- | ------------------------- | ------------------------------------- |
-| `BANGUMI_PRIVATE`          | `false`                   | 是否将收藏设为仅自己可见              |
-| `BANGUMI_USER_AGENT`       | `douban-backup/1.0 (...)` | Bangumi 要求带 User-Agent             |
-| `BANGUMI_COLLECTION_LIMIT` | `50`                      | Bangumi→NeoDB 每次增量条数（最大 50） |
+**Token 会过期**：无 refresh，到期需重新生成并更新 secret。日志出现 401 /「token 可能已过期」即此原因。详见 [个人令牌说明](https://bgm.tv/group/topic/370315)。
 
-**Token 会过期**：个人令牌没有 refresh，到期后需自行回页面重新生成，并更新 `BANGUMI_ACCESS_TOKEN`。若 workflow 日志出现 401 /「token 可能已过期」提示，就是这个原因。详见 [个人令牌说明](https://bgm.tv/group/topic/370315)。
+匹配：优先 NeoDB `external_resources` 上的 Bangumi 链接，否则标题精确搜索。豆瓣「话剧」仅在 NeoDB 已挂 Bangumi 链接时同步。Bangumi 无法写入标记时间。覆盖类型：书籍、动画/三次元影视、音乐、游戏。若 Bangumi 已是搁置/抛弃，Douban→Bangumi 不覆盖。
 
-匹配策略：优先通过 NeoDB 的 `external_resources` 找到 Bangumi 条目；找不到再用标题精确搜索。豆瓣「话剧」仅在 NeoDB 已挂 Bangumi 链接时同步。Bangumi 无法写入标记时间，豆瓣打分日期会丢失。
+## Bangumi → NeoDB
 
-冲突处理：豆瓣 RSS 没有「搁置 / 抛弃」。若 Bangumi 已是搁置/抛弃，或 NeoDB 已是 `dropped`，Douban→* 不会覆盖，以免冲掉目标端独有状态。
+同时配置 `BANGUMI_ACCESS_TOKEN` 与 `NEODB_API_TOKEN`，且 `SYNC_BANGUMI_NEODB=1` 时，定时任务拉取最近一批 Bangumi 收藏（默认 50，可用 `BANGUMI_COLLECTION_LIMIT`，最大 50）同步到 NeoDB。评分/短评按 `SYNC_BANGUMI_NEODB_MERGE` 合并。
 
-Bangumi→NeoDB 状态映射：想看→wishlist，在看→progress，看过→complete，**搁置→progress（在玩）**，**抛弃→dropped**。
+状态映射：想看→wishlist，在看→progress，看过→complete，搁置→progress，抛弃→dropped。
 
-重复条目：NeoDB 可能对同一作品有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 会优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）：先看 Bangumi 条目的 `external_resources`，没有则按标题精确搜索带豆瓣链接的 twin。若仍对不上，仍可能各标一条，需等 NeoDB 目录合并或补全外链。已出现的重复可手动删掉 Bangumi 源那条标记，再同步即可落到豆瓣源。
+进度来自收藏的 `ep_status` / `vol_status`：动画/三次元剧集→`episode`（NeoDB 分类为 `movie` 的不写 episode，避免 API 400），书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐→`track`；游戏不同步进度。Douban→NeoDB 不写、不删 progress。
 
-覆盖类型：书籍、动画/三次元影视、音乐、游戏。
+重复条目：同一作品可能有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）。对不上时可能各标一条；可手动删 Bangumi 源标记后再同步。
 
-## 从 Bangumi 同步到 NeoDB（Bangumi → NeoDB）
-
-同时配置了 `BANGUMI_ACCESS_TOKEN` 与 `NEODB_API_TOKEN`，且 `SYNC_BANGUMI_NEODB=1`（默认已开）时，定时任务会额外拉取最近一批 Bangumi 收藏（默认 50 条）并同步到 NeoDB。标记未变时仍会写入进度。进度来自收藏里的 `ep_status` / `vol_status`（不再请求 Bangumi 章节接口）：动画/三次元剧集用 `ep_status`→`episode`（NeoDB 分类为 `movie` 的电影/剧场版不写进度，避免 API 400），书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐用 `ep_status`→`track`；游戏不同步进度。数值为 0 时不写、也不删除 NeoDB 上已有进度。豆瓣没有进度，Douban→NeoDB 不写、不删 progress。
-
-首次全量迁移，或需要把历史条目的可见性等按当前配置刷一遍时，请手动运行（不要放进默认 cron）：
+全量（不要放进默认 cron）：
 
 ```bash
 npm run sync:bangumi-full
 ```
 
-这只会跑 **Bangumi→NeoDB**（分页拉完你的 Bangumi 收藏），**不会**跑豆瓣 RSS，也**不会**改 Bangumi 上的收藏。对已在 NeoDB 上的同一 uuid，会按 Bangumi 的状态/评分/评论/`NEODB_VISIBILITY` 更新 mark，并尽量同步进度；与豆瓣先前写入冲突时，以这次 Bangumi→NeoDB 写到的字段为准（同一条 uuid 上后写覆盖先写的对应字段）。
+只跑 Bangumi→NeoDB，不拉豆瓣、不改 Bangumi。也可设 `BANGUMI_FULL_SYNC=1` 后执行 `npm run sync`（先跑已开启的 Douban→*，再全量 Bangumi→NeoDB）。
 
-也可以在本地 / Actions 设 `BANGUMI_FULL_SYNC=1` 后执行 `npm run sync`（会先跑已开启的 Douban→*，再全量 Bangumi→NeoDB）。
+## Notion（可选）
 
-## todo
-
-- [x] ~~补全 notion 中的海报~~
-  - 同步时会正常插入海报信息，海报图片是豆瓣上的图片的 URL，所以在 notion 中显示不稳定。但因为 notion API 不支持上传文件，所以也无法直接插入图片。暂时不做任何优化。
-- [x] ~~userscript 添加导出 在* 和 想* 的功能~~
-  - 想* 的部分已更新
-  - 在* 的部分感觉个人需求实在不太大，已搁置
-- [x] 豆瓣的标记同步更新到 NeoDB
-- [x] 豆瓣的标记同步更新到 Bangumi
-- [x] Bangumi 的标记同步更新到 NeoDB
-- [ ] 添加 _在\*_ 或者 _想\*_ 列表，考虑一下如何显示？
-- [ ] 从别处更新条目，比如 NeoDB，因为部分条目在豆瓣被删除或未创建
+默认关闭。开启 `SYNC_DOUBAN_NOTION=1` 并配置 `NOTION_TOKEN` 与各分类 database id（见 `.env.example`）。列名见 `cols.json`。仅同步 Complete 状态；海报使用豆瓣图片 URL，Notion 内显示可能不稳定。更细的建库步骤见上游[博文](https://zhuzi.dev/posts/2021-06-05-douban-backup-sync-notion/)。

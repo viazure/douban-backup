@@ -65,6 +65,31 @@ export type CategoryAllowlist<T extends string> =
   | { mode: 'none'; raw: string }
   | { mode: 'set'; values: ReadonlySet<T> };
 
+/** How Douban/Bangumi marks merge into an existing NeoDB mark. */
+export type NeodbMergeProfile = 'overwrite' | 'neodb_prefer';
+
+/**
+ * Parse merge profile. Empty/unset → defaultValue.
+ * Invalid values warn and fall back to defaultValue.
+ */
+export function parseMergeProfile(
+  envName: string,
+  defaultValue: NeodbMergeProfile = 'neodb_prefer',
+): NeodbMergeProfile {
+  const raw = process.env[envName];
+  if (raw === undefined || raw.trim() === '') {
+    return defaultValue;
+  }
+  const value = raw.trim().toLowerCase();
+  if (value === 'overwrite' || value === 'neodb_prefer') {
+    return value;
+  }
+  consola.warn(
+    `${envName}=${raw} is invalid (use overwrite|neodb_prefer); falling back to ${defaultValue}`,
+  );
+  return defaultValue;
+}
+
 function splitCategoryTokens(raw: string | undefined): string[] {
   if (raw === undefined || raw.trim() === '') {
     return [];
@@ -154,6 +179,9 @@ export const syncConfig = {
     'SYNC_BANGUMI_NEODB_CATEGORIES',
     BANGUMI_CATEGORY_ALIASES,
   ),
+
+  doubanNeodbMerge: parseMergeProfile('SYNC_DOUBAN_NEODB_MERGE'),
+  bangumiNeodbMerge: parseMergeProfile('SYNC_BANGUMI_NEODB_MERGE'),
 };
 
 export function needsDoubanRss(): boolean {
@@ -281,9 +309,9 @@ export function needsBangumiMangaPlatformCheck(
 export function describeSyncConfig(): string {
   const lines = [
     `Douban→Notion: ${syncConfig.doubanNotion ? 'on' : 'off'} (${formatAllowlist(syncConfig.doubanNotionCategories)})`,
-    `Douban→NeoDB: ${syncConfig.doubanNeodb ? 'on' : 'off'} (${formatAllowlist(syncConfig.doubanNeodbCategories)})`,
+    `Douban→NeoDB: ${syncConfig.doubanNeodb ? 'on' : 'off'} (${formatAllowlist(syncConfig.doubanNeodbCategories)}, merge=${syncConfig.doubanNeodbMerge})`,
     `Douban→Bangumi: ${syncConfig.doubanBangumi ? 'on' : 'off'} (${formatAllowlist(syncConfig.doubanBangumiCategories)})`,
-    `Bangumi→NeoDB: ${syncConfig.bangumiNeodb ? 'on' : 'off'} (${formatAllowlist(syncConfig.bangumiNeodbCategories)})`,
+    `Bangumi→NeoDB: ${syncConfig.bangumiNeodb ? 'on' : 'off'} (${formatAllowlist(syncConfig.bangumiNeodbCategories)}, merge=${syncConfig.bangumiNeodbMerge})`,
   ];
   return lines.join(', ');
 }

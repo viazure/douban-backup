@@ -10,6 +10,8 @@ import {
   type NeodbProgressType,
 } from './types';
 import { sleep } from './utils';
+import { mergeNeodbMark } from './neodb-merge';
+import { syncConfig } from './sync-config';
 
 dotenv.config();
 
@@ -280,18 +282,18 @@ export async function syncFeedItemToNeodb(item: FeedItem): Promise<void> {
     return;
   }
 
-  consola.info('Going to check item mark status: ', `${neodbItem.title}[${item.link}]`);
+  const label = `${neodbItem.title}[${item.link}]`;
+  consola.info('Going to check item mark status: ', label);
 
   const mark = await getNeodbMark(neodbItem.uuid);
+  const sourceGrade = item.rating ? item.rating * 2 : 0;
+
   if (!mark) {
-    consola.info(
-      'Item is not marked, going to mark now: ',
-      `${neodbItem.title}[${item.link}]`,
-    );
+    consola.info('Item is not marked, going to mark now: ', label);
     await markNeodbItem(neodbItem, {
       shelfType: item.status,
       comment: item.comment,
-      rating: item.rating,
+      ratingGrade: sourceGrade,
       createdTime: item.time,
     });
     return;
@@ -302,30 +304,46 @@ export async function syncFeedItemToNeodb(item: FeedItem): Promise<void> {
   if (existingStatus && !DOUBAN_EXPRESSED_STATUSES.has(existingStatus)) {
     consola.info(
       'NeoDB has Douban-absent status, skip overwrite: ',
-      `${neodbItem.title}[${item.link}] shelf_type=${mark.shelf_type}`,
+      `${label} shelf_type=${mark.shelf_type}`,
     );
     return;
   }
 
-  const desiredGrade = item.rating ? item.rating * 2 : 0;
-  const sameStatus = mark.shelf_type === item.status;
-  const sameComment = (mark.comment_text || '') === (item.comment || '');
-  const sameRating = (mark.rating_grade || 0) === desiredGrade;
-  const sameVisibility = (mark.visibility ?? neodbVisibility) === neodbVisibility;
+  const merged = mergeNeodbMark(
+    mark,
+    {
+      shelfType: item.status,
+      ratingGrade: sourceGrade,
+      comment: item.comment || '',
+    },
+    syncConfig.doubanNeodbMerge,
+    neodbVisibility,
+  );
 
-  if (sameStatus && sameComment && sameRating && sameVisibility) {
-    consola.info('NeoDB mark unchanged, skip: ', `${neodbItem.title}[${item.link}]`);
+  if (!merged.shouldWrite) {
+    consola.info('NeoDB mark unchanged, skip: ', label);
     return;
   }
 
-  consola.info(
-    'Item mark changed, going to update: ',
-    `${neodbItem.title}[${item.link}]`,
-  );
+  if (merged.keptRating || merged.keptComment) {
+    consola.info(
+      'NeoDB prefer: keeping existing ',
+      [
+        merged.keptRating ? 'rating' : null,
+        merged.keptComment ? 'comment' : null,
+      ]
+        .filter(Boolean)
+        .join('+'),
+      ' on ',
+      label,
+    );
+  }
+
+  consola.info('Item mark changed, going to update: ', label);
   await markNeodbItem(neodbItem, {
-    shelfType: item.status,
-    comment: item.comment,
-    rating: item.rating,
+    shelfType: merged.shelfType,
+    comment: merged.comment,
+    ratingGrade: merged.ratingGrade,
     createdTime: item.time,
   });
 }
