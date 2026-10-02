@@ -1,4 +1,4 @@
-![sync-rss](https://github.com/bambooom/douban-backup/actions/workflows/sync-rss.js.yml/badge.svg)
+![sync](https://github.com/viazure/douban-backup/actions/workflows/sync.yml/badge.svg)
 
 > 详细教程 -> https://zhuzi.dev/posts/2021-06-05-douban-backup-sync-notion/
 >
@@ -127,7 +127,7 @@ RSS 的好处一个是轻量，但又包含了个人标记的最重要的几个�
 
 GitHub 免费用户的开源仓库，actions 暂时是完全免费，也不计时间。
 
-[查看 workflow 运行结果 ->](https://github.com/bambooom/douban-backup/actions/workflows/sync-rss.js.yml)
+[查看 workflow 运行结果 ->](https://github.com/viazure/douban-backup/actions/workflows/sync.yml)
 
 ## 同步路径开关
 
