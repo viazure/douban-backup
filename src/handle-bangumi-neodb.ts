@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { consola } from 'consola';
-import type { BangumiCollectionType } from './types';
+import type { BangumiCollectionType, BangumiSubjectType } from './types';
 import {
   BANGUMI_TO_NEODB_STATUS,
   bangumiCollectionToNeodbProgress,
@@ -12,6 +12,7 @@ import {
   bangumiThrottle,
   bangumiToken,
   getBangumiMe,
+  getBangumiSubject,
   listBangumiCollections,
   type BangumiCollection,
 } from './bangumi';
@@ -25,6 +26,11 @@ import {
   setNeodbProgress,
   type NeodbItem,
 } from './neodb';
+import {
+  bangumiSubjectTypesForAllowlist,
+  needsBangumiMangaPlatformCheck,
+  syncConfig,
+} from './sync-config';
 
 dotenv.config();
 
@@ -43,47 +49,70 @@ export default async function handleBangumiToNeodb(fullSync = false): Promise<vo
     return;
   }
 
+  const allowlist = syncConfig.bangumiNeodbCategories;
+  const subjectTypes = bangumiSubjectTypesForAllowlist(allowlist);
+
+  if (subjectTypes && subjectTypes.length === 0) {
+    consola.warn('Bangumi → NeoDB category allowlist is empty; skip.');
+    return;
+  }
+
   consola.start(
     fullSync
       ? 'Going to full-sync Bangumi → NeoDB...'
       : 'Going to sync recent Bangumi → NeoDB...',
   );
 
-  let offset = 0;
   let processed = 0;
-  const limit = bangumiCollectionLimit;
+  const mangaPlatformCheck = needsBangumiMangaPlatformCheck(allowlist);
 
-  while (true) {
-    const page = await listBangumiCollections({
-      username: me.username,
-      limit,
-      offset,
-    });
+  // null = mixed fetch (all types); otherwise one pass per subject_type
+  const typePasses: Array<BangumiSubjectType | undefined> = subjectTypes
+    ? subjectTypes
+    : [undefined];
 
-    if (!page.data.length) {
-      break;
-    }
+  for (const subjectType of typePasses) {
+    let offset = 0;
+    const limit = bangumiCollectionLimit;
 
-    for (const collection of page.data) {
-      await syncCollectionToNeodb(collection);
-      await bangumiThrottle();
-      processed += 1;
-    }
+    while (true) {
+      const page = await listBangumiCollections({
+        username: me.username,
+        limit,
+        offset,
+        subjectType,
+      });
 
-    if (!fullSync) {
-      break;
-    }
+      if (!page.data.length) {
+        break;
+      }
 
-    offset += page.data.length;
-    if (offset >= page.total) {
-      break;
+      for (const collection of page.data) {
+        const synced = await syncCollectionToNeodb(collection, mangaPlatformCheck);
+        if (synced) {
+          processed += 1;
+        }
+        await bangumiThrottle();
+      }
+
+      if (!fullSync) {
+        break;
+      }
+
+      offset += page.data.length;
+      if (offset >= page.total) {
+        break;
+      }
     }
   }
 
   consola.success(`Bangumi → NeoDB synced (${processed} items) ✨`);
 }
 
-async function syncCollectionToNeodb(collection: BangumiCollection): Promise<void> {
+async function syncCollectionToNeodb(
+  collection: BangumiCollection,
+  mangaPlatformCheck: boolean,
+): Promise<boolean> {
   const url = bangumiSubjectUrl(collection.subject_id);
   const title =
     collection.subject?.name_cn ||
@@ -91,13 +120,21 @@ async function syncCollectionToNeodb(collection: BangumiCollection): Promise<voi
     `subject/${collection.subject_id}`;
   consola.info('Bangumi → NeoDB: ', `${title}[${url}]`);
 
+  if (
+    mangaPlatformCheck &&
+    collection.subject_type === 1 &&
+    !(await isBangumiManga(collection.subject_id, title))
+  ) {
+    return false;
+  }
+
   const neodbItem = await resolveNeodbItemForBangumiUrl(url, {
     titles: [collection.subject?.name_cn, collection.subject?.name],
     subjectType: collection.subject_type,
   });
   if (!neodbItem?.uuid) {
     consola.warn('NeoDB could not resolve Bangumi URL, skip: ', url);
-    return;
+    return false;
   }
 
   const shelfType = BANGUMI_TO_NEODB_STATUS[collection.type as BangumiCollectionType];
@@ -128,6 +165,20 @@ async function syncCollectionToNeodb(collection: BangumiCollection): Promise<voi
   }
 
   await syncProgressToNeodb(collection, neodbItem, title);
+  return true;
+}
+
+async function isBangumiManga(subjectId: number, title: string): Promise<boolean> {
+  const subject = await getBangumiSubject(subjectId);
+  const platform = subject?.platform?.trim() || '';
+  if (platform === '漫画') {
+    return true;
+  }
+  consola.info(
+    'Bangumi → NeoDB: skip non-manga book: ',
+    `${title} (platform=${platform || 'unknown'})`,
+  );
+  return false;
 }
 
 async function syncProgressToNeodb(

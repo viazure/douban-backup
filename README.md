@@ -142,13 +142,31 @@ GitHub 免费用户的开源仓库，actions 暂时是完全免费，也不计�
 
 取值为 `1` / `true` / `on` 启用，`0` / `false` / `off` 关闭。关闭全部 `Douban→*` 时会跳过拉取豆瓣 RSS。
 
-本地示例（只开你需要的三条）：
+### 按类别过滤
+
+每条链路可再设类别白名单（逗号分隔）。**留空 = 该链路同步全部类别**。
+
+| Variable                         | 词表                                              | 说明              |
+| -------------------------------- | ------------------------------------------------- | ----------------- |
+| `SYNC_DOUBAN_NOTION_CATEGORIES`  | `movie` `music` `book` `game` `drama`             | 豆瓣 → Notion     |
+| `SYNC_DOUBAN_NEODB_CATEGORIES`   | 同上                                              | 豆瓣 → NeoDB      |
+| `SYNC_DOUBAN_BANGUMI_CATEGORIES` | 同上                                              | 豆瓣 → Bangumi    |
+| `SYNC_BANGUMI_NEODB_CATEGORIES`  | `anime` `manga` `book` `music` `game` `real`      | Bangumi → NeoDB   |
+
+也接受中文别名（如 `电影`、`动画`/`动漫`、`漫画`、`游戏`）。豆瓣词表对应 RSS 解析出的类别；Bangumi 词表对应条目类型（`manga` = 书籍且 `platform` 为「漫画」，不含小说/画集；`book` = 全部书籍）。
+
+若写了值但没有可识别的类别，该链路**不同步任何条目**（避免拼写错误变成全量），日志会警告。
+
+本地示例（豆瓣全部进 NeoDB / Bangumi，Bangumi→NeoDB 只要动画、漫画、游戏）：
 
 ```env
 SYNC_DOUBAN_NOTION=0
 SYNC_DOUBAN_NEODB=1
 SYNC_DOUBAN_BANGUMI=1
 SYNC_BANGUMI_NEODB=1
+SYNC_DOUBAN_NEODB_CATEGORIES=
+SYNC_DOUBAN_BANGUMI_CATEGORIES=
+SYNC_BANGUMI_NEODB_CATEGORIES=anime,manga,game
 ```
 
 若 GitHub Actions 拉豆瓣 RSS 出现超时 / `403` / `401`，多半是豆瓣拦截机房 IP 或缺浏览器 UA。脚本已带浏览器 UA，并对超时与部分 5xx/403 做有限重试；若仍失败，可设 `DOUBAN_RSS_USER_AGENT`，或暂时只开 `SYNC_BANGUMI_NEODB`（豆瓣失败时 Bangumi→NeoDB 仍会继续跑，但 workflow 会以非 0 退出提示 Douban 段失败）。

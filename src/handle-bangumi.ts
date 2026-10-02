@@ -23,6 +23,7 @@ import {
   searchBangumiSubjects,
   upsertBangumiCollection,
 } from './bangumi';
+import { filterDoubanFeedsByCategory, syncConfig } from './sync-config';
 
 dotenv.config();
 
@@ -41,8 +42,14 @@ export default async function handleBangumi(feeds: FeedItem[]): Promise<void> {
     return;
   }
 
+  const filtered = filterDoubanFeedsByCategory(
+    feeds,
+    syncConfig.doubanBangumiCategories,
+    'Douban → Bangumi',
+  );
+
   consola.start('Going to sync Douban → Bangumi...');
-  for (const item of feeds) {
+  for (const item of filtered) {
     await syncFeedItemToBangumi(item, me.username);
     await bangumiThrottle();
   }

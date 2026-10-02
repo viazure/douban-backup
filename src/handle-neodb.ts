@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { consola } from 'consola';
 import type { FeedItem } from './types';
 import { neodbToken, syncFeedItemToNeodb } from './neodb';
+import { filterDoubanFeedsByCategory, syncConfig } from './sync-config';
 
 dotenv.config();
 
@@ -16,8 +17,14 @@ export default async function handleNeodb(feeds: FeedItem[]): Promise<void> {
     return;
   }
 
+  const filtered = filterDoubanFeedsByCategory(
+    feeds,
+    syncConfig.doubanNeodbCategories,
+    'Douban → NeoDB',
+  );
+
   consola.start('Going to sync to NeoDB...');
-  for (const item of feeds) {
+  for (const item of filtered) {
     await syncFeedItemToNeodb(item);
   }
   consola.success('NeoDB synced ✨');

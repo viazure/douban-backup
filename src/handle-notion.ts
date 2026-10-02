@@ -14,6 +14,7 @@ import {
   type DB_PROPERTIES_KEYS,
   type FailedItem,
 } from './types';
+import { filterDoubanFeedsByCategory, syncConfig } from './sync-config';
 
 // https://github.com/makenotion/notion-sdk-js/issues/280#issuecomment-1178523498
 type EmojiRequest = Extract<CreatePageParameters['icon'], { type?: 'emoji' }>['emoji'];
@@ -35,7 +36,13 @@ const notion = new Client({
  * the Notion database
  */
 export default async function handleNotion(feeds: FeedItem[]): Promise<void> {
-  const groupByCategory: Partial<Record<ItemCategory, FeedItem[]>> = feeds.reduce(
+  const filtered = filterDoubanFeedsByCategory(
+    feeds,
+    syncConfig.doubanNotionCategories,
+    'Douban → Notion',
+  );
+
+  const groupByCategory: Partial<Record<ItemCategory, FeedItem[]>> = filtered.reduce(
     (acc, feed) => {
       if (!acc[feed.category]) {
         acc[feed.category] = [];

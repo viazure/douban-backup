@@ -44,6 +44,8 @@ export type BangumiSubject = {
   type: BangumiSubjectType;
   name: string;
   name_cn: string;
+  /** TV, Web, 漫画, 小说, ... — present on full subject, not SlimSubject */
+  platform?: string;
 };
 
 export type BangumiCollection = {
@@ -83,6 +85,32 @@ export async function getBangumiMe(): Promise<BangumiUser | null> {
     } else {
       consola.error('Failed to get Bangumi /v0/me: ', error);
     }
+    return null;
+  }
+}
+
+/**
+ * Full subject details (includes platform for books: 漫画 / 小说 / ...).
+ */
+export async function getBangumiSubject(
+  subjectId: number,
+): Promise<BangumiSubject | null> {
+  if (!bangumiToken) {
+    return null;
+  }
+  try {
+    return (await got(`${BGM_API}/v0/subjects/${subjectId}`, {
+      headers: authHeaders(),
+    }).json()) as BangumiSubject;
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      logUnauthorized();
+      return null;
+    }
+    if (error instanceof HTTPError && error.response.statusCode === 404) {
+      return null;
+    }
+    consola.error(`Failed to get Bangumi subject ${subjectId}: `, error);
     return null;
   }
 }
