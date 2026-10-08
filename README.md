@@ -72,11 +72,12 @@ SYNC_BANGUMI_NEODB_CATEGORIES=anime,manga,game
 
 ### 标记合并策略
 
-作用于 Douban→NeoDB、Bangumi→NeoDB。NeoDB **没有**该条标记时，用来源全量写入。**已有**标记时：
+作用于 Douban→NeoDB、Bangumi→NeoDB。NeoDB **没有**该条标记时，用来源全量写入（可带标记时间）。**已有**标记时：
 
 - 状态：以来源为准（Douban→NeoDB 若 NeoDB 已是 `dropped` 则整条不更新 mark）
 - 评分 / 短评：由下方 profile 决定
-- 进度：仅 Bangumi→NeoDB；有进度才写，为 0 不写也不删；不在此 profile 内
+- 标记时间：更新时不改写 NeoDB 已有 `created_time`
+- 进度：见 `SYNC_BANGUMI_NEODB_PROGRESS`（默认关闭，不在 merge profile 内）
 
 | Variable                   | 默认           | 说明            |
 | -------------------------- | -------------- | --------------- |
@@ -113,7 +114,7 @@ SYNC_BANGUMI_NEODB_MERGE=neodb_prefer
 
 状态映射：想看→wishlist，在看→progress，看过→complete，搁置→progress，抛弃→dropped。
 
-进度来自收藏的 `ep_status` / `vol_status`：动画/三次元剧集→`episode`（NeoDB 分类为 `movie` 的不写 episode，避免 API 400），书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐→`track`；游戏不同步进度。Douban→NeoDB 不写、不删 progress。
+进度（章节/集数等）默认**不同步**。若需要，设 `SYNC_BANGUMI_NEODB_PROGRESS=1`：来自收藏的 `ep_status` / `vol_status`——动画/三次元剧集→`episode`（NeoDB 分类为 `movie` 的不写 episode），书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐→`track`；游戏不同步；为 0 不写也不删。Douban→NeoDB 从不写 progress。
 
 重复条目：同一作品可能有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）。对不上时可能各标一条；可手动删 Bangumi 源标记后再同步。
 

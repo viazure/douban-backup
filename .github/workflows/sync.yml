@@ -42,6 +42,7 @@ jobs:
       SYNC_BANGUMI_NEODB_CATEGORIES: ${{ vars.SYNC_BANGUMI_NEODB_CATEGORIES || '' }}
       SYNC_DOUBAN_NEODB_MERGE: ${{ vars.SYNC_DOUBAN_NEODB_MERGE || 'neodb_prefer' }}
       SYNC_BANGUMI_NEODB_MERGE: ${{ vars.SYNC_BANGUMI_NEODB_MERGE || 'neodb_prefer' }}
+      SYNC_BANGUMI_NEODB_PROGRESS: ${{ vars.SYNC_BANGUMI_NEODB_PROGRESS || '0' }}
 
     steps:
       - uses: actions/checkout@v6

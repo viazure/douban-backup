@@ -162,6 +162,8 @@ export const syncConfig = {
   doubanBangumi: envEnabled('SYNC_DOUBAN_BANGUMI', true),
   /** Bangumi collections → NeoDB */
   bangumiNeodb: envEnabled('SYNC_BANGUMI_NEODB', true),
+  /** Bangumi → NeoDB progress (episode/chapter/track). Default off. */
+  bangumiNeodbProgress: envEnabled('SYNC_BANGUMI_NEODB_PROGRESS', false),
 
   doubanNotionCategories: parseCategoryAllowlist(
     'SYNC_DOUBAN_NOTION_CATEGORIES',
@@ -311,7 +313,7 @@ export function describeSyncConfig(): string {
     `Douban→Notion: ${syncConfig.doubanNotion ? 'on' : 'off'} (${formatAllowlist(syncConfig.doubanNotionCategories)})`,
     `Douban→NeoDB: ${syncConfig.doubanNeodb ? 'on' : 'off'} (${formatAllowlist(syncConfig.doubanNeodbCategories)}, merge=${syncConfig.doubanNeodbMerge})`,
     `Douban→Bangumi: ${syncConfig.doubanBangumi ? 'on' : 'off'} (${formatAllowlist(syncConfig.doubanBangumiCategories)})`,
-    `Bangumi→NeoDB: ${syncConfig.bangumiNeodb ? 'on' : 'off'} (${formatAllowlist(syncConfig.bangumiNeodbCategories)}, merge=${syncConfig.bangumiNeodbMerge})`,
+    `Bangumi→NeoDB: ${syncConfig.bangumiNeodb ? 'on' : 'off'} (${formatAllowlist(syncConfig.bangumiNeodbCategories)}, merge=${syncConfig.bangumiNeodbMerge}, progress=${syncConfig.bangumiNeodbProgress ? 'on' : 'off'})`,
   ];
   return lines.join(', ');
 }

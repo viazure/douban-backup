@@ -141,10 +141,23 @@ async function syncCollectionToNeodb(
   const shelfType = BANGUMI_TO_NEODB_STATUS[collection.type as BangumiCollectionType];
   const ratingGrade = collection.rate || 0;
   const comment = collection.comment || '';
-  // Bangumi updated_at is unreliable for "marked at" but used as a hint.
+  // Bangumi updated_at is unreliable; only used when creating a new NeoDB mark.
   const createdTime = collection.updated_at || undefined;
 
   const mark = await getNeodbMark(neodbItem.uuid);
+  if (!mark) {
+    await markNeodbItem(neodbItem, {
+      shelfType,
+      comment,
+      ratingGrade,
+      createdTime,
+    });
+    if (syncConfig.bangumiNeodbProgress) {
+      await syncProgressToNeodb(collection, neodbItem, title);
+    }
+    return true;
+  }
+
   const merged = mergeNeodbMark(
     mark,
     { shelfType, ratingGrade, comment },
@@ -168,15 +181,17 @@ async function syncCollectionToNeodb(
         title,
       );
     }
+    // Do not pass createdTime on update — preserves NeoDB mark date.
     await markNeodbItem(neodbItem, {
       shelfType: merged.shelfType,
       comment: merged.comment,
       ratingGrade: merged.ratingGrade,
-      createdTime,
     });
   }
 
-  await syncProgressToNeodb(collection, neodbItem, title);
+  if (syncConfig.bangumiNeodbProgress) {
+    await syncProgressToNeodb(collection, neodbItem, title);
+  }
   return true;
 }
 

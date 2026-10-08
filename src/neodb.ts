@@ -340,11 +340,11 @@ export async function syncFeedItemToNeodb(item: FeedItem): Promise<void> {
   }
 
   consola.info('Item mark changed, going to update: ', label);
+  // Do not pass createdTime on update — preserves NeoDB mark date.
   await markNeodbItem(neodbItem, {
     shelfType: merged.shelfType,
     comment: merged.comment,
     ratingGrade: merged.ratingGrade,
-    createdTime: item.time,
   });
 }
 
