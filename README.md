@@ -116,7 +116,7 @@ SYNC_BANGUMI_NEODB_MERGE=neodb_prefer
 
 进度（章节/集数等）默认**不同步**。若需要，设 `SYNC_BANGUMI_NEODB_PROGRESS=1`：来自收藏的 `ep_status` / `vol_status`——动画/三次元剧集→`episode`（NeoDB 分类为 `movie` 的不写 episode），书籍优先 `vol_status` 否则 `ep_status`→`chapter`，音乐→`track`；游戏不同步；为 0 不写也不删。Douban→NeoDB 从不写 progress。
 
-重复条目：同一作品可能有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）。对不上时可能各标一条；可手动删 Bangumi 源标记后再同步。
+重复条目：同一作品可能有豆瓣源 / Bangumi 源两个 catalog。Bangumi→NeoDB 优先写到带豆瓣外链的那条（与 Douban→NeoDB 共用 uuid）。找豆瓣 twin 时不跨介质（书籍不会落到同名影视/剧集，反之亦然）。对不上时可能各标一条；可手动删 Bangumi 源标记后再同步。
 
 全量（不要放进默认 cron）：
 

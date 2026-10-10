@@ -398,6 +398,33 @@ export function bangumiSubjectTypeToNeodbSearchCategory(
   }
 }
 
+/**
+ * Whether a NeoDB catalog category matches a Bangumi subject type.
+ * Prevents manga/book marks from landing on same-title TV/movie twins.
+ */
+export function isNeodbCategoryCompatibleWithBangumi(
+  neodbCategory: string | undefined,
+  subjectType: BangumiSubjectType | undefined,
+): boolean {
+  if (subjectType == null) {
+    return true;
+  }
+  const cat = String(neodbCategory || '').toLowerCase();
+  switch (subjectType) {
+    case 1:
+      return cat === 'book';
+    case 2:
+    case 6:
+      return cat === 'movie' || cat === 'tv';
+    case 3:
+      return cat === 'music';
+    case 4:
+      return cat === 'game';
+    default:
+      return true;
+  }
+}
+
 function normalizeTitleKey(title: string): string {
   return title.trim().toLowerCase().replace(/\s+/g, '');
 }
@@ -459,11 +486,14 @@ export async function searchNeodbCatalog(
 /**
  * Find a Douban-linked catalog twin by exact title match when external_resources
  * on the Bangumi-fetched item do not already include a Douban URL.
+ * Searches only within `category` when set (no all-category fallback) and
+ * rejects hits whose NeoDB category is incompatible with Bangumi subjectType.
  */
 export async function findDoubanLinkedTwinByTitle(
   fromBangumi: NeodbItem,
   titles: Array<string | null | undefined>,
   category?: NeodbSearchCategory,
+  subjectType?: BangumiSubjectType,
 ): Promise<NeodbItem | null> {
   const queries = uniqueNonEmptyTitles([
     ...titles,
@@ -475,35 +505,33 @@ export async function findDoubanLinkedTwinByTitle(
   }
 
   const queryKeys = new Set(queries.map(normalizeTitleKey));
-  const categories: Array<NeodbSearchCategory | undefined> = category
-    ? [category, undefined]
-    : [undefined];
   const seenUuid = new Set<string>([fromBangumi.uuid]);
 
-  for (const cat of categories) {
-    for (const query of queries) {
-      const hits = await searchNeodbCatalog(query, cat);
-      for (const hit of hits) {
-        if (!hit.uuid || seenUuid.has(hit.uuid)) continue;
-        seenUuid.add(hit.uuid);
-        if (!extractDoubanUrlFromNeodb(hit)) continue;
-
-        const hitKeys = collectNeodbItemTitleKeys(hit);
-        let matched = false;
-        for (const key of queryKeys) {
-          if (hitKeys.has(key)) {
-            matched = true;
-            break;
-          }
-        }
-        if (!matched) continue;
-
-        consola.info(
-          'NeoDB Douban twin found via title search: ',
-          `${fromBangumi.uuid} → ${hit.uuid} (${hit.title || hit.display_title})`,
-        );
-        return hit;
+  for (const query of queries) {
+    const hits = await searchNeodbCatalog(query, category);
+    for (const hit of hits) {
+      if (!hit.uuid || seenUuid.has(hit.uuid)) continue;
+      seenUuid.add(hit.uuid);
+      if (!extractDoubanUrlFromNeodb(hit)) continue;
+      if (!isNeodbCategoryCompatibleWithBangumi(hit.category, subjectType)) {
+        continue;
       }
+
+      const hitKeys = collectNeodbItemTitleKeys(hit);
+      let matched = false;
+      for (const key of queryKeys) {
+        if (hitKeys.has(key)) {
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) continue;
+
+      consola.info(
+        'NeoDB Douban twin found via title search: ',
+        `${fromBangumi.uuid} → ${hit.uuid} (${hit.title || hit.display_title})`,
+      );
+      return hit;
     }
   }
 
@@ -522,7 +550,9 @@ export type ResolveBangumiNeodbOptions = {
  * This keeps Bangumi→NeoDB marks on the same uuid as Douban→NeoDB.
  *
  * 1) Prefer Douban URL already on the Bangumi-fetched item's external_resources
+ *    (same medium only; e.g. book twin for Bangumi books)
  * 2) Else search catalog by title for an exact-title hit that has a Douban link
+ *    within the Bangumi subject type's NeoDB category
  */
 export async function resolveNeodbItemForBangumiUrl(
   bangumiUrl: string,
@@ -537,6 +567,18 @@ export async function resolveNeodbItemForBangumiUrl(
   if (doubanUrl) {
     const fromDouban = await fetchNeodbItemByUrl(doubanUrl);
     if (fromDouban?.uuid && fromDouban.uuid !== fromBangumi.uuid) {
+      if (
+        !isNeodbCategoryCompatibleWithBangumi(
+          fromDouban.category,
+          options.subjectType,
+        )
+      ) {
+        consola.info(
+          'NeoDB Douban twin category mismatch, keep Bangumi entry: ',
+          `${fromBangumi.uuid} (${fromBangumi.category}) ↛ ${fromDouban.uuid} (${fromDouban.category})`,
+        );
+        return fromBangumi;
+      }
       consola.info(
         'NeoDB has separate Douban/Bangumi catalog entries; prefer Douban twin: ',
         `${fromBangumi.uuid} → ${fromDouban.uuid}`,
@@ -555,6 +597,7 @@ export async function resolveNeodbItemForBangumiUrl(
     fromBangumi,
     options.titles || [],
     category,
+    options.subjectType,
   );
   return twin || fromBangumi;
 }
