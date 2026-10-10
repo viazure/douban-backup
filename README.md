@@ -16,12 +16,12 @@
 Bangumi 收藏 ──→ NeoDB
 ```
 
-| 路线 | 默认 | 状态范围 |
-| ---- | ---- | -------- |
-| 豆瓣 → NeoDB | 开 | 想 / 在 / 过 |
-| 豆瓣 → Bangumi | 开 | 想 / 在 / 过 |
-| Bangumi → NeoDB | 开 | 含搁置 / 抛弃 |
-| 豆瓣 → Notion | 关 | 仅 Complete（看过 / 听过 / 读过等） |
+| 路线            | 默认 | 状态范围                            |
+| --------------- | ---- | ----------------------------------- |
+| 豆瓣 → NeoDB    | 开   | 想 / 在 / 过                        |
+| 豆瓣 → Bangumi  | 开   | 想 / 在 / 过                        |
+| Bangumi → NeoDB | 开   | 含搁置 / 抛弃                       |
+| 豆瓣 → Notion   | 关   | 仅 Complete（看过 / 听过 / 读过等） |
 
 ## 快速开始
 
@@ -35,11 +35,11 @@ Token 等敏感信息请放到 **Secrets**，不要写进代码或公开 Variabl
 
 ### 2. 准备凭证
 
-| 凭证 | 获取方式 | 用途 |
-| ---- | -------- | ---- |
-| 豆瓣用户 ID | 主页 `https://www.douban.com/people/<id>/` 中的 `<id>` | 所有豆瓣 → \* |
-| NeoDB Token | [开发者页面](https://neodb.social/developer/) | 写入 NeoDB |
-| Bangumi Access Token | [个人令牌](https://next.bgm.tv/demo/access-token)（尽量选最长有效期） | 读写 Bangumi |
+| 凭证                 | 获取方式                                                              | 用途          |
+| -------------------- | --------------------------------------------------------------------- | ------------- |
+| 豆瓣用户 ID          | 主页 `https://www.douban.com/people/<id>/` 中的 `<id>`                | 所有豆瓣 → \* |
+| NeoDB Token          | [开发者页面](https://neodb.social/developer/)                         | 写入 NeoDB    |
+| Bangumi Access Token | [个人令牌](https://next.bgm.tv/demo/access-token)（尽量选最长有效期） | 读写 Bangumi  |
 
 豆瓣收藏需能通过公开 RSS 读取。Bangumi Token 会过期，出现 `401` 时需重新生成。
 
@@ -47,10 +47,10 @@ Token 等敏感信息请放到 **Secrets**，不要写进代码或公开 Variabl
 
 **Settings → Secrets and variables → Actions → Secrets**
 
-| Secret | 说明 |
-| ------ | ---- |
-| `DOUBAN_USER_ID` | 豆瓣用户 ID |
-| `NEODB_API_TOKEN` | NeoDB Token |
+| Secret                 | 说明                 |
+| ---------------------- | -------------------- |
+| `DOUBAN_USER_ID`       | 豆瓣用户 ID          |
+| `NEODB_API_TOKEN`      | NeoDB Token          |
 | `BANGUMI_ACCESS_TOKEN` | Bangumi Access Token |
 
 默认三条路线只需以上三项。若启用 Notion，再加 `NOTION_TOKEN` 及对应 database id。
@@ -59,12 +59,12 @@ Token 等敏感信息请放到 **Secrets**，不要写进代码或公开 Variabl
 
 **Settings → Secrets and variables → Actions → Variables**
 
-| Variable | 默认 | 说明 |
-| -------- | ---- | ---- |
-| `SYNC_DOUBAN_NEODB` | `1` | 豆瓣 → NeoDB |
-| `SYNC_DOUBAN_BANGUMI` | `1` | 豆瓣 → Bangumi |
-| `SYNC_BANGUMI_NEODB` | `1` | Bangumi → NeoDB |
-| `SYNC_DOUBAN_NOTION` | `0` | 豆瓣 → Notion |
+| Variable              | 默认 | 说明            |
+| --------------------- | ---- | --------------- |
+| `SYNC_DOUBAN_NEODB`   | `1`  | 豆瓣 → NeoDB    |
+| `SYNC_DOUBAN_BANGUMI` | `1`  | 豆瓣 → Bangumi  |
+| `SYNC_BANGUMI_NEODB`  | `1`  | Bangumi → NeoDB |
+| `SYNC_DOUBAN_NOTION`  | `0`  | 豆瓣 → Notion   |
 
 `1` 开启，`0` 关闭。与默认相同的值不必创建。
 
@@ -80,12 +80,12 @@ Actions 使用 **Secrets**（敏感）与 **Variables**（开关等）；本地�
 
 ### 同步路线开关
 
-| Variable | 默认 | 说明 |
-| -------- | ---- | ---- |
-| `SYNC_DOUBAN_NOTION` | `0` | 豆瓣 RSS → Notion |
-| `SYNC_DOUBAN_NEODB` | `1` | 豆瓣 RSS → NeoDB |
-| `SYNC_DOUBAN_BANGUMI` | `1` | 豆瓣 RSS → Bangumi |
-| `SYNC_BANGUMI_NEODB` | `1` | Bangumi 收藏 → NeoDB |
+| Variable              | 默认 | 说明                 |
+| --------------------- | ---- | -------------------- |
+| `SYNC_DOUBAN_NOTION`  | `0`  | 豆瓣 RSS → Notion    |
+| `SYNC_DOUBAN_NEODB`   | `1`  | 豆瓣 RSS → NeoDB     |
+| `SYNC_DOUBAN_BANGUMI` | `1`  | 豆瓣 RSS → Bangumi   |
+| `SYNC_BANGUMI_NEODB`  | `1`  | Bangumi 收藏 → NeoDB |
 
 布尔值：`1` / `true` / `yes` / `on` 为开。关闭全部豆瓣路线时不请求豆瓣 RSS。
 
@@ -93,12 +93,12 @@ Actions 使用 **Secrets**（敏感）与 **Variables**（开关等）；本地�
 
 逗号或空格分隔；**留空 = 该路线全部类别**。
 
-| Variable | 可用类别 | 说明 |
-| -------- | -------- | ---- |
-| `SYNC_DOUBAN_NOTION_CATEGORIES` | `movie` `music` `book` `game` `drama` | 豆瓣 → Notion |
-| `SYNC_DOUBAN_NEODB_CATEGORIES` | 同上 | 豆瓣 → NeoDB |
-| `SYNC_DOUBAN_BANGUMI_CATEGORIES` | 同上 | 豆瓣 → Bangumi |
-| `SYNC_BANGUMI_NEODB_CATEGORIES` | `anime` `manga` `book` `music` `game` `real` | Bangumi → NeoDB |
+| Variable                         | 可用类别                                     | 说明            |
+| -------------------------------- | -------------------------------------------- | --------------- |
+| `SYNC_DOUBAN_NOTION_CATEGORIES`  | `movie` `music` `book` `game` `drama`        | 豆瓣 → Notion   |
+| `SYNC_DOUBAN_NEODB_CATEGORIES`   | 同上                                         | 豆瓣 → NeoDB    |
+| `SYNC_DOUBAN_BANGUMI_CATEGORIES` | 同上                                         | 豆瓣 → Bangumi  |
+| `SYNC_BANGUMI_NEODB_CATEGORIES`  | `anime` `manga` `book` `music` `game` `real` | Bangumi → NeoDB |
 
 支持中文别名：`电影`、`音乐`、`书籍`、`游戏`、`话剧`、`动画`、`动漫`、`漫画`、`三次元`。
 
@@ -115,23 +115,23 @@ Token 见 [开发者文档](https://neodb.social/developer/)，Secret：`NEODB_A
 
 `NEODB_VISIBILITY`：
 
-| 值 | 含义 |
-| -- | ---- |
-| `0` | 公开 |
-| `1` | 仅关注者 |
+| 值  | 含义                   |
+| --- | ---------------------- |
+| `0` | 公开                   |
+| `1` | 仅关注者               |
 | `2` | 自己和提到的人（默认） |
 
 #### 标记合并
 
-| Variable | 默认 | 路线 |
-| -------- | ---- | ---- |
-| `SYNC_DOUBAN_NEODB_MERGE` | `neodb_prefer` | 豆瓣 → NeoDB |
+| Variable                   | 默认           | 路线            |
+| -------------------------- | -------------- | --------------- |
+| `SYNC_DOUBAN_NEODB_MERGE`  | `neodb_prefer` | 豆瓣 → NeoDB    |
 | `SYNC_BANGUMI_NEODB_MERGE` | `neodb_prefer` | Bangumi → NeoDB |
 
-| 值 | 评分 / 短评 |
-| -- | ----------- |
+| 值             | 评分 / 短评                                        |
+| -------------- | -------------------------------------------------- |
 | `neodb_prefer` | NeoDB 已有非 0 评分 / 非空短评则保留，否则用来源填 |
-| `overwrite` | 用来源覆盖 |
+| `overwrite`    | 用来源覆盖                                         |
 
 - 无标记时用来源创建。
 - 状态以来源为准；豆瓣 → NeoDB 若已是 `dropped` 则不覆盖整条 mark。
@@ -142,13 +142,15 @@ Token 见 [开发者文档](https://neodb.social/developer/)，Secret：`NEODB_A
 
 ### Bangumi
 
-| Variable | 默认 | 说明 |
-| -------- | ---- | ---- |
-| `BANGUMI_PRIVATE` | `false` | 写入是否私密（须为 `true` 才开启） |
-| `BANGUMI_COLLECTION_LIMIT` | `50` | 每类每批数量，最大 50 |
-| `BANGUMI_USER_AGENT` | 内置 | 自定义 UA |
+| Variable                   | 默认                              | 说明                               |
+| -------------------------- | --------------------------------- | ---------------------------------- |
+| `BANGUMI_PRIVATE`          | `false`                           | 写入是否私密（须为 `true` 才开启） |
+| `BANGUMI_COLLECTION_LIMIT` | `50`                              | 每类每批数量，最大 50              |
+| `BANGUMI_USER_AGENT`       | `viazure/douban-backup/1.0 (...)` | 自定义 API User-Agent              |
 
-详见 [Bangumi API](https://bangumi.github.io/api/)、[个人令牌说明](https://bgm.tv/group/topic/370315)。
+所有 Bangumi API 请求都会携带 User-Agent。Fork 用户通常无需配置；需要标识自己的应用时，建议使用 `开发者ID/应用名/版本 (项目主页)` 格式覆盖，例如 `your-id/douban-backup/1.0 (https://github.com/your-id/douban-backup)`。
+
+详见 [Bangumi API](https://bangumi.github.io/api/)、[User-Agent 规范](https://github.com/bangumi/api/blob/master/docs-raw/user%20agent.md)、[个人令牌说明](https://bgm.tv/group/topic/370315)。
 
 #### 豆瓣 → Bangumi
 
@@ -156,13 +158,13 @@ Token 见 [开发者文档](https://neodb.social/developer/)，Secret：`NEODB_A
 
 #### Bangumi → NeoDB
 
-| Bangumi | NeoDB |
-| ------- | ----- |
-| 想看等 | `wishlist` |
-| 在看等 | `progress` |
-| 看过等 | `complete` |
-| 搁置 | `progress` |
-| 抛弃 | `dropped` |
+| Bangumi | NeoDB      |
+| ------- | ---------- |
+| 想看等  | `wishlist` |
+| 在看等  | `progress` |
+| 看过等  | `complete` |
+| 搁置    | `progress` |
+| 抛弃    | `dropped`  |
 
 #### 进度
 
