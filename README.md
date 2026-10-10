@@ -8,12 +8,12 @@
 
 ## 概述
 
-```text
-豆瓣 RSS ──→ NeoDB
-         ├─→ Bangumi
-         └─→ Notion
-
-Bangumi 收藏 ──→ NeoDB
+```mermaid
+flowchart LR
+  DoubanRSS[豆瓣 RSS] --> NeoDB
+  DoubanRSS --> Bangumi
+  DoubanRSS --> Notion
+  BangumiCol[Bangumi 收藏] --> NeoDB
 ```
 
 | 路线            | 默认 | 状态范围                            |
